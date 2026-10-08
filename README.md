@@ -4,7 +4,11 @@ A Claude Code mod that keeps your current task in view while Claude works. A ban
 
 Tasks are plain markdown files in a `plans/` folder in your project. You edit them by hand, with `/task`, or Claude edits them as it works. No accounts, no services, no network calls.
 
-<!-- Screenshots go here: ![The band above the prompt](media/band.png) and ![The Workbench pane](media/pane.png) -->
+![The band above the prompt: the task, the item in progress and a progress bar](media/band.png)
+
+<img src="media/pane.png" alt="The Workbench pane: the task box with work items and Up next, and the files box with Right now, Claude touched and the file tree" width="420">
+
+<sub>Mockups drawn with the mod's own drawing code and sample data.</sub>
 
 ## Install
 
