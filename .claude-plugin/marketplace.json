@@ -1,0 +1,11 @@
+{
+  "name": "eascend",
+  "owner": { "name": "eascend", "url": "https://eascend.co" },
+  "description": "Claude Code mods from eascend",
+  "plugins": [
+    {
+      "name": "workbench",
+      "source": "./"
+    }
+  ]
+}

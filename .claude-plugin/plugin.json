@@ -1,0 +1,33 @@
+{
+  "name": "workbench",
+  "version": "0.1.0",
+  "description": "Your current task above the prompt and a Workbench side pane: the task and its work items, what Claude is reading and editing, git status, file search and a file tree. Tasks are plain markdown files in plans/.",
+  "types": "./types/index.d.ts",
+  "author": { "name": "eascend", "url": "https://eascend.co" },
+  "homepage": "https://github.com/eascendco/workbench",
+  "repository": "https://github.com/eascendco/workbench",
+  "license": "MIT",
+  "keywords": ["mod", "pane", "tasks", "file-tree", "git"],
+  "userConfig": {
+    "plans_dir": {
+      "type": "string",
+      "title": "Plans folder",
+      "description": "Folder name for plan files, found at or above the session's folder. One plain name, no slashes.",
+      "default": "plans"
+    },
+    "open_pane": {
+      "type": "string",
+      "title": "Open the pane at start",
+      "description": "on opens the Workbench pane with every session; off leaves it closed until /task pane or the band's arrow.",
+      "default": "on",
+      "options": ["on", "off"]
+    },
+    "band": {
+      "type": "string",
+      "title": "Band above the prompt",
+      "description": "on shows the current task and its progress above the prompt; off hides it.",
+      "default": "on",
+      "options": ["on", "off"]
+    }
+  }
+}
