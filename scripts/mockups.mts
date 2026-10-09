@@ -1,5 +1,5 @@
 // Mockups of the Workbench band and pane for the README, drawn with the mod's own SVG helpers and invented test data.
-// node scripts/mockups.mts <out dir>, then render each HTML file to PNG (headless Chrome: --screenshot --force-device-scale-factor=2).
+// node scripts/mockups.mts <out dir> (band, pane, inflight), then render each HTML file to PNG (headless Chrome: --screenshot --force-device-scale-factor=2).
 import fs from 'node:fs'
 import { ACCENT, bandBarSvg, bandTitleSvg, DOING, paneBarSvg, STAGE_COLOR } from '../hooks/draw.ts'
 import { caps, fileTag, hero, icon, pill, rule } from '../hooks/icons.ts'
@@ -143,9 +143,81 @@ const pane = page(`
       <div class="row between mt2" style="padding:0 2px">${capsL('All files')}${capsL('weather-app')}</div>
       <div class="tree mt">${treeRows}</div>
     </div>
-    <div class="card"><span class="row"><span class="muted">▶</span>${img(icon('gauge', C.write, 16))}<span>Flightdeck</span></span></div>
+    <div class="card"><span class="row"><span class="muted">▶</span>${img(icon('gauge', C.write, 16))}<span>In flight</span></span></div>
   </div>
 </div>`)
+
+/* ── In flight, expanded, with numbered badges the README explains ── */
+// Text in the pane takes Claude Code's theme colors (dark); caps labels and icons take the pane's own ink.
+const TH = { claude: '#d97757', sugg: '#b1b9f9', ok: '#4eba65', perm: '#b1b9f9', merged: '#af87ff', warn: '#ffc107', err: '#ff6b80', inact: '#999999', subtle: '#5a5a56', text: '#ececec', dim: '#8a8a85' }
+const sp = (c: string, t: string, x = '') => `<span style="color:${c};${x}">${t}</span>`
+const dm = (t: string) => sp(TH.dim, t)
+const badge = (n: number) => `<span class="badge">${n}</span>`
+const panel = (n: number, inner: string, cls = '') => `<div class="card mt rel ${cls}">${badge(n)}${inner}</div>`
+const key = (k: string) => sp(TH.claude, k) + dm(':')
+const tile = (g: string, gc: string, n: number, t1: string, t2: string, type: string, ctx: string, st: string, clock: string, live: boolean, open: boolean) => `
+  <div class="col" style="flex:1;min-width:0;border:${open ? '3px double' : '1px solid'} ${live || open ? TH.sugg : '#5a5a7a'};border-radius:${open ? 3 : 9}px;padding:6px 9px;gap:1px">
+    <div class="trunc">${key(String(n))} <span class="bold">${t1}</span></div><div class="trunc bold">${t2}</div>
+    <div class="trunc" style="color:${TH.inact}">${type}</div><div class="trunc" style="color:${TH.dim}">${ctx}</div>
+    <div class="row" style="gap:6px"><span class="trunc" style="color:${gc}">${g} ${st}</span><span style="color:${TH.inact}">${clock}</span></div>
+  </div>`
+const strip = 'rrrrcrrrrraccrrrrrrsrrcrrrrrrrrrcrrrrdrrrr'.split('').map(k => (k === 'r' ? sp(TH.ok, '■') : k === 'c' ? sp(TH.perm, '■') : k === 'a' ? sp(TH.warn, '■') : k === 'd' ? sp(TH.err, '✗') : sp(TH.ok, '■', 'opacity:.45'))).join('')
+const logRow = (t: string, who: string, wc: string, text: string, tc = TH.text) => `<div class="row"><span style="width:44px;flex-shrink:0;color:${TH.subtle}">${t}</span><span class="trunc bold" style="width:86px;flex-shrink:0;color:${wc}">${who}</span><span class="grow trunc" style="color:${tc}">${text}</span></div>`
+const collapsedRow = (name: string, ic: Parameters<typeof icon>[0], c: string) => `<div class="card"><span class="row"><span class="muted">▶</span>${img(icon(ic, c, 16))}<span>${name}</span></span></div>`
+const inflightCss = css + `.rel{position:relative}.badge{position:absolute;right:-11px;top:-11px;width:22px;height:22px;border-radius:11px;background:${TH.claude};color:#1f1f1e;font:700 12px/22px -apple-system,sans-serif;text-align:center;box-shadow:0 0 0 3px #1f1f1e}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;letter-spacing:-.5px}.wrap{flex-wrap:wrap;column-gap:16px}`
+const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${inflightCss}</style></head><body>
+<div class="pane">
+  <div class="pane-head"><span>Workbench</span><span>✕</span></div>
+  <div class="pane-body">
+    ${collapsedRow('Tasks', 'list-checks', C.ok)}${collapsedRow('Files', 'folder', C.folder)}
+    <div class="card"><span class="row"><span class="muted">▼</span>${img(icon('gauge', C.write, 16))}<span>In flight · Opus 5.5 working</span></span>
+      ${panel(1, `<div class="row between">${capsL('Opus 5.5 · main', C.write)}${sp(TH.claude, '● working')}</div>
+        <div>${dm('effort ')}${sp(TH.claude, '▮▮▮▯ ')}${sp(TH.claude, 'high', 'font-weight:600')}${dm('  mode auto  42 req')}</div>
+        <div>${dm('ctx ')}<span class="mono">${sp(TH.claude, '▰▰▰▰▰')}${sp(TH.subtle, '▱▱▱▱▱▱▱▱▱▱▱')}</span><span class="bold"> 31%</span>${dm(' 62k/200k')}${sp(TH.warn, '  ⟲1')}</div>
+        <div class="row wrap">${sp(TH.text, '$4.82')}<span>${dm('5h ')}<span class="mono">${sp(TH.claude, '▰▰')}${sp(TH.subtle, '▱▱▱')}</span>${dm(' 38%')}</span><span>${dm('7d ')}<span class="mono">${sp(TH.claude, '▰')}${sp(TH.subtle, '▱▱▱▱')}</span>${dm(' 12%')}</span></div>`, 'tint')}
+      ${panel(2, `<div class="row between">${capsL('Architect · on call', C.read)}<span>${dm('consults ')}${sp(TH.merged, '2', 'font-weight:600')}</span></div>
+        <div class="mono" style="color:${TH.merged}">◆━━─────────────────────────────◆━━━──────────</div>
+        <div>${dm('last 3m02s ago · took 41s')}</div>
+        <div class="row wrap">${sp(TH.inact, '◇ before a plan')}${sp(TH.inact, '◇ error repeats')}${sp(TH.merged, '◆ before done', 'font-weight:600')}${sp(TH.subtle, '(inferred)')}</div>
+        <div class="trunc" style="color:${TH.merged}">» Ship it after one more test of the gate drill-down.</div>`)}
+      ${panel(3, `<div class="row between">${capsL('Gate · permissions', C.ok)}${dm('42 checks')}</div>
+        <div class="mono">${strip}</div>
+        <div class="row wrap"><span>${sp(TH.ok, '■')}${dm(' 34 allowed')}</span><span>${sp(TH.perm, '■')}${dm(' 6 classifier')}</span>${sp(TH.warn, '■ 1 pending')}${sp(TH.err, '✗ 1 denied')}</div>
+        <div class="row mt" style="gap:16px"><span>${key('f')} file 24</span><span>${key('s')} shell 14 ▾</span><span>${key('o')} other 4</span></div>
+        <div class="trunc">${sp(TH.ok, '■ ')}${sp(TH.inact, 'allowed&nbsp;&nbsp;&nbsp;&nbsp;')}Bash → git status</div>
+        <div class="trunc">${sp(TH.perm, '■ ')}${sp(TH.inact, 'classifier ')}Bash → npm test -- deck</div>
+        <div class="trunc">${sp(TH.warn, '■ ')}${sp(TH.inact, 'pending&nbsp;&nbsp;&nbsp;&nbsp;')}Bash → curl -H "Authorization: Bearer •••" api</div>
+        <div class="trunc">${sp(TH.err, '✗ ')}${sp(TH.inact, 'denied&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')}Bash → rm -rf build</div>`)}
+      ${panel(4, `${capsL('Agents · 2 running · 5 total', C.read)}
+        <div class="row mt" style="gap:8px;align-items:stretch">
+          ${tile('✓', TH.ok, 1, 'Audit the gate', 'redaction rules', 'Explore', '41k ctx · 12 st', 'done', '1:12', false, false)}
+          ${tile('◐', TH.sugg, 2, 'Find every', 'caller of addTouch', 'Explore', '28k ctx · 7 st', 'running', '2:05', true, true)}
+          ${tile('◐', TH.sugg, 3, 'Check skins', 'palette in light…', 'general', 'starting…', 'running', '0:48', true, false)}
+        </div>
+        <div class="mt">${capsL('Earlier · 2')}</div>
+        <div class="row">${sp(TH.ok, '✓')}<span class="grow trunc">${key('4')} Map the pane redraw triggers</span>${dm('36k ctx')}${sp(TH.inact, '0:54')}</div>
+        <div class="row">${sp(TH.err, '✗')}<span class="grow trunc">${key('5')} Run the desktop screenshot script</span>${dm('9k ctx')}${sp(TH.inact, '0:21')}</div>
+        <div class="card mt" style="border-color:${TH.sugg};border-radius:2px">
+          <div class="bold">Find every caller of addTouch</div>
+          <div>${dm('Explore · Opus 5.5 · running · 7 steps')}</div><div>${dm('ctx 28k · out 3k')}</div>
+          <div class="trunc">· Grep → addTouch</div><div class="trunc">· Read → hooks/register.tsx</div><div class="trunc">· Read → hooks/bench.ts</div>
+        </div>`)}
+      ${panel(5, `<div class="row">${sp(TH.claude, '◐ opus 5.5 · turn 2:14')}${dm('· 3 edits · 1 error')}</div>`)}
+      ${panel(6, `${capsL('Session log')}
+        ${logRow('14:02', 'you', TH.text, 'add a third card for the agents')}
+        ${logRow('14:03', 'architect', TH.merged, 'before a plan · advisor tool')}
+        ${logRow('14:04', 'Audit the g…', TH.sugg, 'spawned · Explore')}
+        ${logRow('14:05', 'gate', TH.err, 'denied by rule · Bash → rm -rf build', TH.err)}
+        ${logRow('14:06', 'main', TH.claude, 'Edit → hooks/deck-view.tsx')}
+        ${logRow('14:06', 'main', TH.err, 'Bash → npm test  ✗', TH.err)}
+        ${logRow('14:07', 'Audit the g…', TH.ok, 'done · 1m12s')}
+        ${logRow('14:08', 'architect', TH.merged, 'advice: Ship it after one more test of the…')}`)}
+      <div class="row mt"><span class="btn">Reset</span></div>
+    </div>
+  </div>
+</div></body></html>`
+fs.writeFileSync(`${out}/inflight.html`, inflight)
 
 fs.writeFileSync(`${out}/band.html`, band)
 fs.writeFileSync(`${out}/pane.html`, pane)

@@ -1,4 +1,4 @@
-// The Flightdeck card's drawing, stacked for the Workbench's one column: main vitals, the
+// The In flight card's drawing, stacked for the Workbench's one column: main vitals, the
 // architect, the permission gate, agent cards and lanes, other loops, the turn receipt and the
 // session log. Pure: register.tsx reads the state and passes the presses back in.
 //
@@ -20,7 +20,7 @@ const EARLIER_ROWS = 6
 const ARCH_LABEL = 'Architect'
 
 type Role = 'main' | 'agent' | 'gate' | 'cleared' | 'arch' | 'amber' | 'warn' | 'dim' | 'faint' | 'text'
-/** Each role's skin slot, and with no skin the Claude Code theme key Flightdeck uses. */
+/** Each role's skin slot, and with no skin the Claude Code theme key the original Flightdeck uses. */
 const ROLE: Record<Role, [Slot, ThemeKey]> = {
   main: ['write', 'claude'],
   agent: ['read', 'suggestion'],
@@ -51,7 +51,7 @@ export type DeckKit = {
 
 /** The section's title: the main model and whether it works. */
 export function deckTitle(m: DeckData['main']) {
-  return `Flightdeck · ${m.model ? prettyModel(m.model) : 'main'} ${m.isRunning ? 'working' : 'idle'}`
+  return `In flight · ${m.model ? prettyModel(m.model) : 'main'} ${m.isRunning ? 'working' : 'idle'}`
 }
 
 export function deckKids(d: DeckData, kit: DeckKit): unknown[] {

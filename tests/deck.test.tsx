@@ -1,4 +1,4 @@
-// Flightdeck, the Workbench's third card. The pure tests are adapted from claude-flightdeck's own
+// In flight, the Workbench's third card. The pure tests are adapted from claude-flightdeck's own
 // (MIT, Stephen Casella); the pane tests check the card inside the Workbench.
 import { expect, mock, test } from 'claude-code/testing'
 
@@ -112,17 +112,17 @@ const spawn = (subagentType: string, description: string) => ({
   provider: { plugin: 'engine', tier: 'core' as const }, parentModel: 'claude-opus-5-5', background: true, fork: false,
 })
 
-test('Flightdeck starts collapsed under Files, opens to its main panel and log, and the choice is kept', async ($, on) => {
+test('In flight starts collapsed under Files, opens to its main panel and log, and the choice is kept', async ($, on) => {
   world(on)
   await $.session.start({ source: 'startup', cwd: ROOT } as never)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount(pane(surface))
     if (surface === 'terminal') {
-      expect(await ui.find({ type: 'Button', text: /^Flightdeck$/ })).toBeDefined()
+      expect(await ui.find({ type: 'Button', text: /^In flight$/ })).toBeDefined()
       expect(await ui.find({ text: /idle/ })).toBeUndefined()
       await ui.press({ key: 'bd-toggle' })
     }
-    expect(await ui.find({ type: 'Button', text: /^Flightdeck · main idle$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Button', text: /^In flight · main idle$/ })).toBeDefined()
     expect(await ui.find({ text: /nothing yet/ })).toBeDefined()
     // Empty panels take no room: no checks, no agents, no architect yet
     expect(await ui.find({ text: /Agents ·/i })).toBeUndefined()

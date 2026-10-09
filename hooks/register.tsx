@@ -178,7 +178,7 @@ async function startWorkbench($: $) {
 }
 
 /** After each turn: commits and checkouts happen in Bash, so the branch line catches up. */
-/** Which Workbench sections are open, kept across sessions: Tasks open, Files and Flightdeck collapsed until changed. */
+/** Which Workbench sections are open, kept across sessions: Tasks open, Files and In flight collapsed until changed. */
 const SECTIONS = 'sections'
 type Sections = { tasks: boolean; files: boolean; deck: boolean }
 const sectionsOf = (v: unknown): Sections => ({ tasks: true, files: false, deck: false, ...(v && typeof v === 'object' ? (v as Partial<Sections>) : {}) })
@@ -190,7 +190,7 @@ async function toggleSection($: $, k: keyof Sections) {
   await quiet($.store.set(SECTIONS, ui.sections))
 }
 
-/* ── the Flightdeck card: its state, read and drawn here; its hooks are further down ── */
+/* ── the In flight card: its state, read and drawn here; its hooks are further down ── */
 
 const mainAtom = atom({ plugin: 'workbench', key: 'deckMain' } as const, DEFAULT_MAIN)
 const usageAtom = atom({ plugin: 'workbench', key: 'deckUsage' } as const, DEFAULT_USAGE)
@@ -470,7 +470,7 @@ async function taskCommand($: $, e: { args?: string }) {
   return { text: textView(snap, ui.selected) }
 }
 
-/* ── Flightdeck's hooks: they watch the session and keep the card's state; each passes its event on unchanged ── */
+/* ── In flight's hooks: they watch the session and keep the card's state; each passes its event on unchanged ── */
 
 /** Agent types and server tools that count as the on-call architect. */
 const ARCHITECT = /advisor|architect/i
@@ -579,7 +579,7 @@ async function noteCall($: $, e: CallIn, ran: CallOut) {
   else if (isEdit) await say($, await whoIs($, e.agentId), text, 'info', e.agentId ?? null)
 }
 
-/** Flightdeck at session start: the first usage reading. A host without usage just starts without it. */
+/** In flight at session start: the first usage reading. A host without usage just starts without it. */
 async function deckStart($: $) {
   const u = await $.session.usage().catch(() => null)
   if (u)
@@ -593,7 +593,7 @@ async function deckStart($: $) {
     }))
 }
 
-/** Flightdeck around a tool call: it runs the call, then notes it; nothing after the call may throw into it. */
+/** In flight around a tool call: it runs the call, then notes it; nothing after the call may throw into it. */
 async function deckToolCall($: $, e: CallIn, next: (e: CallIn) => Promise<CallOut>): Promise<CallOut> {
   callLoop.set(e.tool_use_id, e.agentId ?? null)
   const ran = await next(e).finally(() => callLoop.delete(e.tool_use_id))
@@ -601,7 +601,7 @@ async function deckToolCall($: $, e: CallIn, next: (e: CallIn) => Promise<CallOu
   return ran
 }
 
-/** Flightdeck after a turn, the main loop's or an agent's: the receipt, or the agent's card done. */
+/** In flight after a turn, the main loop's or an agent's: the receipt, or the agent's card done. */
 async function deckTurnDone($: $, e: TurnIn) {
   const id = e.agentId
   const now = await $.clock.now()
@@ -636,7 +636,7 @@ export const register: Register = (on, options) => {
   settings.openPane = options.open_pane !== 'off'
   settings.band = options.band !== 'off'
 
-  // Flightdeck: the events only it watches. session.start, tool.call and turn.complete go through the Workbench's own hooks.
+  // In flight: the events only it watches. session.start, tool.call and turn.complete go through the Workbench's own hooks.
   on('session.end', async ($, e, next) => {
     if (e.reason === 'clear') await resetDeck($)
     return next(e)
@@ -977,7 +977,7 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => next(e))
 
   // What Claude reads and edits, for "Right now" and "Claude touched"; commands and searches for "Right now".
-  // Every call also runs through Flightdeck, which settles its permission check and logs edits and errors.
+  // Every call also runs through In flight, which settles its permission check and logs edits and errors.
   on('tool.call', async ($, e, next) => {
     const kind = FILE_TOOLS[e.tool]
     const args = e as unknown as { file_path?: unknown; notebook_path?: unknown; command?: unknown; description?: unknown; pattern?: unknown }
@@ -1382,7 +1382,7 @@ export const register: Register = (on, options) => {
 
     // A section's header: ▼ open, ▶ collapsed to this one row; the arrow, the icon and the title all toggle it.
     // The icon is a drawing, so a blank button lies over it; spilling onto its neighbours is harmless, they toggle too.
-    // Flightdeck is read only while open, so a collapsed card does not redraw the pane on every event.
+    // In flight is read only while open, so a collapsed card does not redraw the pane on every event.
     const deck = open.deck ? await readDeck($) : undefined
     const deckBody = deck
       ? deckKids(deck, {
@@ -1417,7 +1417,7 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column" alignItems="stretch" width="100%" gap={1}>
         {card('box-task', open.tasks ? [section('bt', 'tasks', cur ? `Task · ${cur.short}` : 'Task'), ...task] : [section('bt', 'tasks', 'Tasks')])}
         {card('box-files', open.files ? [section('bf', 'files', `Files: ${baseOf(root) || '/'}`), ...fileKids] : [section('bf', 'files', 'Files')])}
-        {card('box-deck', deck ? [section('bd', 'deck', deckTitle(deck.main)), ...deckBody] : [section('bd', 'deck', 'Flightdeck')])}
+        {card('box-deck', deck ? [section('bd', 'deck', deckTitle(deck.main)), ...deckBody] : [section('bd', 'deck', 'In flight')])}
       </Box>
     )
   })
