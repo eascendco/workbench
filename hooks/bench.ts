@@ -56,9 +56,6 @@ export function paletteOf(prefs: SkinPrefs, custom: SkinCustom, isLight: boolean
   return { ...p, themed: true }
 }
 
-/** Work item stages as skin slots. */
-export const STAGE_SLOT: Record<string, Slot> = { spec: 'search', design: 'user', build: 'write', track: 'read', test: 'run', ship: 'ok' }
-
 /* ── paths ── */
 
 export const parentOf = (p: string) => (p.lastIndexOf('/') > 0 ? p.slice(0, p.lastIndexOf('/')) : '/')

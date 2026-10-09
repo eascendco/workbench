@@ -9,7 +9,7 @@ import type { Plan, PlanFront } from './plans'
 import { allDone, devEntryOf, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
 import {
   absOf, addTouch, badge, baseOf, extOf, FILE_TOOLS, foldersTo, humanSize, isDirty, join,
-  inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY,
+  inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, THEME_KEY,
 } from './bench'
 import type { SkinCustom, SkinPrefs, Slot } from './bench'
 import { caps, fileTag, hero, icon, pill, progress, rule, triangle } from './icons'
@@ -669,7 +669,8 @@ export const register: Register = (on, options) => {
       const total = cur.items.length
       const pct = total ? Math.round((done / total) * 100) : 0
       const when = cur.start === cur.end ? shortDate(cur.start) : `${shortDate(cur.start)} → ${shortDate(cur.end)}`
-      const stageTag = (key: string, stage: string) => <Text key={key} {...c(STAGE_SLOT[stage] ?? 'muted')}>{stage}</Text>
+      // Every stage in the band's and savvy-progress's purple, as the band's bar shows it.
+      const stageTag = (key: string, stage: string) => <Text key={key} color={ACCENT}>{stage}</Text>
       const STATUS_ICON = { draft: 'square-dashed', todo: 'square', doing: 'square-dot', done: 'square-check' } as const
       const statusInk = (s: WorkItem['status']) => ink(s === 'done' ? 'ok' : s === 'doing' ? 'write' : 'muted')
       // The status square: a Lucide icon with a press over it; a glyph on the terminal.

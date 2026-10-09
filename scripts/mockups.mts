@@ -43,7 +43,7 @@ const items = [
   { t: 'Offline cache', s: 'build', st: 'todo' },
   { t: 'Smoke test', s: 'test', st: 'draft' },
 ] as const
-const STAGE: Record<string, string> = { spec: C.read, design: C.read, build: C.write, track: C.user, test: C.run, ship: C.ok }
+const STAGE: Record<string, string> = { spec: ACCENT, design: ACCENT, build: ACCENT, track: ACCENT, test: ACCENT, ship: ACCENT }
 const SQ = { draft: 'square-dashed', todo: 'square', doing: 'square-dot', done: 'square-check' } as const
 const sqColor = (st: string) => (st === 'done' ? C.ok : st === 'doing' ? C.write : C.muted)
 
@@ -70,7 +70,7 @@ const taskCard = `
   <div class="row between"><span class="muted">1 of 4 done</span><span class="bold" style="color:${C.ok}">25%</span></div>
   <div style="margin:8px 0;line-height:0">${img(rule(C.muted).replace('width="2000"', `width="${IN2}"`))}</div>
   ${capsL('In progress', C.write)}
-  <div class="row mt">${sq('doing')}<span class="grow bold">Forecast screen</span><span style="color:${C.write}">build</span><span class="btn">Done</span></div>
+  <div class="row mt">${sq('doing')}<span class="grow bold">Forecast screen</span><span style="color:${ACCENT}">build</span><span class="btn">Done</span></div>
 </div>`
 const wiCard = `
 <div class="card mt">
