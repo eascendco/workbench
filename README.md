@@ -66,7 +66,7 @@ While Claude works, the file it's reading or editing shimmers in the tree and in
 
 What Claude and its subagents are doing right now, adapted from [claude-flightdeck](https://github.com/scasella/claude-flightdeck) by Stephen Casella (MIT). It only watches: it never blocks or changes a tool call.
 
-**Sessions** comes first: every Claude Code session running on your machine (desktop app, VS Code, terminal), waiting first, then working, then done, each with its title, folder, where it runs and how long it's been in that state. A waiting session says what it waits for (`input needed`, `dialog open`). Collapsed, the box's header still counts them: `In Flight · 1 waiting · 2 working · 3 done`. It reads the registry Claude Code keeps in `~/.claude/sessions` every 3 seconds and checks each process is still running with `ps`, so closed sessions drop off (macOS and Linux).
+**Sessions** sits under the main panel: every Claude Code session running on your machine (desktop app, VS Code, terminal), waiting first, then working, then done, each with its title, folder, where it runs and how long it's been in that state. A waiting session says what it waits for (`input needed`, `dialog open`). Collapsed, the box's header still counts them: `In Flight · 1 waiting · 2 working · 3 done`. It reads the registry Claude Code keeps in `~/.claude/sessions` every 3 seconds and checks each process is still running with `ps`, so closed sessions drop off (macOS and Linux).
 
 <img src="media/inflight.png" alt="The In Flight box expanded, with numbered panels: main model, architect, permission gate, agents, the turn and the session log" width="420">
 
