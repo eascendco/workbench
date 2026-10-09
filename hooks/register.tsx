@@ -12,7 +12,7 @@ import {
   inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY,
 } from './bench'
 import type { SkinCustom, SkinPrefs, Slot } from './bench'
-import { caps, fileTag, hero, icon, pill, progress, rule, triangle } from './icons'
+import { caps, fileTag, hero, icon, pill, progress, rule, tile, triangle } from './icons'
 import type { IconName, Ink } from './icons'
 
 const TOOL = 'work_items'
@@ -639,12 +639,26 @@ export const register: Register = (on, options) => {
         {right ? capsText(key + '-r', right) : null}
       </Box>
     )
-    // A tinted card (Current task, Right now) takes the app's message surface, which follows light and dark.
-    const card = (key: string, kids: unknown[], marginTop = 0, tinted = false) => (
-      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={tinted ? 'userMessageBackground' : undefined} borderStyle="round" borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
-        {kids as never}
-      </Box>
-    )
+    // A tinted card (Current task, Right now) is a tile like the agents panel's: on the desktop a drawn fill behind the
+    // content (it follows the app's light and dark) and no visible border; elsewhere the app's message surface.
+    const card = (key: string, kids: unknown[], marginTop = 0, tinted = false) => {
+      const isTile = tinted && Svg
+      return (
+        <Box key={key} position={isTile ? 'relative' : undefined} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={tinted && !Svg ? 'userMessageBackground' : undefined} borderStyle="round" borderColor={isTile ? '#00000000' : pal.themed ? pal.muted : undefined} borderDimColor={isTile ? undefined : !pal.themed} paddingX={2} paddingY={1}>
+          {isTile
+            ? [
+                // Positioned, so it paints under the content box that follows it.
+                <Box key={key + '-tile'} position="absolute" top={0} bottom={0} left={0} right={0} overflow="hidden" borderStyle="round" borderColor="#00000000">
+                  <Svg width={room(0) + 64} height={1600} alt="tile" source={tile(room(0) + 64, 1600)} />
+                </Box>,
+                <Box key={key + '-body'} position="relative" flexDirection="column" alignItems="stretch" width="100%">
+                  {kids as never}
+                </Box>,
+              ]
+            : (kids as never)}
+        </Box>
+      )
+    }
     const dot = (key: string, slot: Slot) => <Text key={key} {...c(slot)}>●</Text>
 
     /* ── box 1: task management ── */
