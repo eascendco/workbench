@@ -3,7 +3,7 @@ import type { EngineInterface, Hook, Register } from 'claude-code'
 
 import type { DevEntry, Entry, Files, Git, Group, PaneUi, Snap, Touch, WorkbenchUi, WorkItem } from '../types'
 import type { BarIn } from './draw'
-import { ACCENT, bandBarSvg, bandTitleSvg, DOING, DONE, MUTED } from './draw'
+import { ACCENT, bandBarSvg, bandTitleSvg, DOING, DONE, MUTED, STAGE_COLOR } from './draw'
 import { activeItem, byStatus, clip, counts, localDate, newId, nextStatus, parseAdd, STAGES, TITLE_MAX, withStages } from './logic'
 import type { Plan, PlanFront } from './plans'
 import { allDone, devEntryOf, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
@@ -12,7 +12,7 @@ import {
   inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, THEME_KEY,
 } from './bench'
 import type { SkinCustom, SkinPrefs, Slot } from './bench'
-import { caps, fileTag, hero, icon, pill, progress, rule, triangle } from './icons'
+import { caps, fileTag, hero, icon, pill, rule } from './icons'
 import type { IconName, Ink } from './icons'
 
 const TOOL = 'work_items'
@@ -257,7 +257,8 @@ function barIn(g: Group): BarIn {
   const now = activeItem(g.items.filter(i => i.status !== 'done'))
   const finished = c.total > 0 && c.done === c.total
   const pill = finished ? 'done' : !g.items.length ? 'break down' : !c.total ? `${n.draft} draft${n.draft === 1 ? '' : 's'}` : (now?.stage ?? 'build')
-  return { done: c.done, doing: n.doing, total: c.total, pill, finished }
+  // The bar takes the current stage's color, as the pane's stage tags do.
+  return { done: c.done, doing: n.doing, total: c.total, pill, finished, color: now ? STAGE_COLOR[now.stage] : undefined }
 }
 
 /** The item the band names: in progress, else the next one to do. */
@@ -669,8 +670,8 @@ export const register: Register = (on, options) => {
       const total = cur.items.length
       const pct = total ? Math.round((done / total) * 100) : 0
       const when = cur.start === cur.end ? shortDate(cur.start) : `${shortDate(cur.start)} → ${shortDate(cur.end)}`
-      // Every stage in the band's and savvy-progress's purple, as the band's bar shows it.
-      const stageTag = (key: string, stage: string) => <Text key={key} color={ACCENT}>{stage}</Text>
+      // Each stage in its own color, the one the band's bar takes while that stage is current.
+      const stageTag = (key: string, stage: string) => <Text key={key} color={STAGE_COLOR[stage] ?? MUTED}>{stage}</Text>
       const STATUS_ICON = { draft: 'square-dashed', todo: 'square', doing: 'square-dot', done: 'square-check' } as const
       const statusInk = (s: WorkItem['status']) => ink(s === 'done' ? 'ok' : s === 'doing' ? 'write' : 'muted')
       // The status square: a Lucide icon with a press over it; a glyph on the terminal.
@@ -700,7 +701,8 @@ export const register: Register = (on, options) => {
           </Box>
         ),
         Svg ? (
-          <Box key="ct-bar" marginTop={1} width="100%"><Svg height={8} alt={`${pct}% done`} source={progress(done, doing.length, total, ink('ok'), mutedInk)} /></Box>
+          // The band's bar: the current stage's color and its pill, the percent at the end.
+          <Box key="ct-bar" marginTop={1} width="100%"><Svg width={room(2)} height={20} alt={`${barIn(cur).pill}, ${pct}% done`} source={bandBarSvg(room(2), barIn(cur))} /></Box>
         ) : (
           <Text key="ct-bar" wrap="truncate-end">
             <Text {...c('ok')}>{'█'.repeat(Math.round((Math.max(8, cols - 12) * done) / Math.max(1, total)))}</Text>
@@ -709,7 +711,7 @@ export const register: Register = (on, options) => {
         ),
         <Box key="ct-count" flexDirection="row" justifyContent="space-between" width="100%">
           <Text {...c('muted')}>{total ? `${done} of ${total} done` : 'Not broken down yet'}</Text>
-          <Text bold {...c('ok')}>{`${pct}%`}</Text>
+          {Svg ? null : <Text bold {...c('ok')}>{`${pct}%`}</Text>}
         </Box>,
         divider('ct-hr'),
         capsText('ip-cap', 'In progress', 'write'),
@@ -787,7 +789,7 @@ export const register: Register = (on, options) => {
         task.push(
           <Box key={'nx-' + g.key} flexDirection="row" columnGap={1} alignItems="center" marginTop={1} width="100%">
             {dot('nxd-' + g.key, g.items.some(i => i.status === 'doing') ? 'write' : 'muted')}
-            <Box flexGrow={1} flexShrink={1} minWidth={0}><Text wrap="truncate-end" {...c('fg')}>{g.title}</Text></Box>
+            <Box flexGrow={1} flexShrink={1} minWidth={0}><Text wrap="truncate-end" {...c('fg')}>{clip(g.title, 30)}</Text></Box>
             <Text {...c('muted')}>{shortDate(g.start)}</Text>
           </Box>,
         )
@@ -889,7 +891,7 @@ export const register: Register = (on, options) => {
       touchKids.push(
         <Box key={'tc-' + t.path} flexDirection="row" columnGap={1} alignItems="center" marginTop={1} paddingLeft={2} width="100%">
           {Svg ? <Svg key={'tct-' + t.path} width={tag.w} height={tag.h} alt={extOf(t.path) || 'file'} source={tag.source} /> : null}
-          <Box flexShrink={1} minWidth={0}><Text bold wrap="truncate-end" {...c('fg')}>{baseOf(t.path)}</Text></Box>
+          <Box flexShrink={1} minWidth={0}><Text bold wrap="truncate-end" {...c('fg')}>{clip(baseOf(t.path), 20)}</Text></Box>
           <Box flexGrow={1} flexShrink={2} minWidth={0}><Text wrap="truncate-end" {...c('muted')}>{relDir(t.path, root)}</Text></Box>
           {Svg ? <Svg key={'tcp-' + t.path} width={p.w} height={p.h} alt={badge(t)} source={p.source} /> : <Text bold {...c(slot)}>{badge(t)}</Text>}
         </Box>,
@@ -925,18 +927,10 @@ export const register: Register = (on, options) => {
       for (const r of rows) {
         const toggle = () => void toggleDir($, r.path)
         const hidden = r.name.startsWith('.')
-        // triangle, icon, name: each in its own column so they line up at every depth
+        // chevron, icon, name: each in its own column so they line up at every depth
+        // A ▸/▾ button on every surface: an invisible button laid over a drawn triangle missed clicks on the desktop.
         const chevron = r.dir ? (
-          Svg ? (
-            <Box key={'cv-' + r.path} width={2} height={1} flexShrink={0} justifyContent="center" alignItems="center">
-              <Svg width={10} height={10} alt={r.open ? 'collapse' : 'expand'} source={triangle(r.open, mutedInk)} />
-              <Box position="absolute" top={0} left={0} right={0} bottom={0}>
-                <Button key={'cvb-' + r.path} plain label="  " onPress={toggle} />
-              </Box>
-            </Box>
-          ) : (
-            <Button key={'cv-' + r.path} plain label={r.open ? '▾' : '▸'} onPress={toggle} />
-          )
+          <Button key={'cv-' + r.path} plain label={r.open ? '▾' : '▸'} onPress={toggle} />
         ) : (
           <Box key={'cv-' + r.path} width={2} flexShrink={0} />
         )

@@ -1,8 +1,8 @@
 // Mockups of the Workbench band and pane for the README, drawn with the mod's own SVG helpers and invented test data.
 // node scripts/mockups.mts <out dir>, then render each HTML file to PNG (headless Chrome: --screenshot --force-device-scale-factor=2).
 import fs from 'node:fs'
-import { ACCENT, bandBarSvg, bandTitleSvg, DOING } from '../hooks/draw.ts'
-import { caps, fileTag, hero, icon, pill, progress, rule, triangle } from '../hooks/icons.ts'
+import { ACCENT, bandBarSvg, bandTitleSvg, DOING, STAGE_COLOR } from '../hooks/draw.ts'
+import { caps, fileTag, hero, icon, pill, rule } from '../hooks/icons.ts'
 
 const out = process.argv[2]!
 // The pane's own colors (no skin), on the desktop app's dark theme
@@ -43,7 +43,7 @@ const items = [
   { t: 'Offline cache', s: 'build', st: 'todo' },
   { t: 'Smoke test', s: 'test', st: 'draft' },
 ] as const
-const STAGE: Record<string, string> = { spec: ACCENT, design: ACCENT, build: ACCENT, track: ACCENT, test: ACCENT, ship: ACCENT }
+const STAGE = STAGE_COLOR
 const SQ = { draft: 'square-dashed', todo: 'square', doing: 'square-dot', done: 'square-check' } as const
 const sqColor = (st: string) => (st === 'done' ? C.ok : st === 'doing' ? C.write : C.muted)
 
@@ -53,7 +53,7 @@ const band = page(`
 <div style="width:${BW + 40}px">
   <div class="col" style="gap:4px;padding:0 6px 10px">
     <div class="row">${img(dark(bandTitleSvg(BW - 24, DOING, 'weather-app', 'Seven-day forecast', 'Forecast screen')))}<span class="muted" style="font-size:15px">❯</span></div>
-    ${img(dark(bandBarSvg(BW - 24, { done: 1, doing: 1, total: 4, pill: 'build', finished: false })))}
+    ${img(dark(bandBarSvg(BW - 24, { done: 1, doing: 1, total: 4, pill: 'build', finished: false, color: STAGE_COLOR.build })))}
   </div>
   <div style="border:1px solid #4a4a46;border-radius:14px;background:#30302e;padding:14px 16px 12px;color:${C.muted}">
     <div style="min-height:44px">Reply to Claude…</div>
@@ -66,11 +66,11 @@ const sq = (st: keyof typeof SQ) => ico(SQ[st], sqColor(st), 16)
 const taskCard = `
 <div class="card tint">
   ${img(darkHero(hero({ icon: 'check', accent: C.ok, label: 'Current task', title: 'Seven-day forecast', sub: 'weather-app · Oct 8 → Oct 10', w: IN2, panel: false })))}
-  <div class="mt" style="line-height:0">${img(progress(1, 1, 4, C.ok, C.muted).replace('width="1000"', `width="${IN2}"`))}</div>
-  <div class="row between"><span class="muted">1 of 4 done</span><span class="bold" style="color:${C.ok}">25%</span></div>
+  <div class="mt" style="line-height:0">${img(dark(bandBarSvg(IN2, { done: 1, doing: 1, total: 4, pill: 'build', finished: false, color: STAGE_COLOR.build })))}</div>
+  <div class="row between"><span class="muted">1 of 4 done</span></div>
   <div style="margin:8px 0;line-height:0">${img(rule(C.muted).replace('width="2000"', `width="${IN2}"`))}</div>
   ${capsL('In progress', C.write)}
-  <div class="row mt">${sq('doing')}<span class="grow bold">Forecast screen</span><span style="color:${ACCENT}">build</span><span class="btn">Done</span></div>
+  <div class="row mt">${sq('doing')}<span class="grow bold">Forecast screen</span><span style="color:${STAGE_COLOR.build}">build</span><span class="btn">Done</span></div>
 </div>`
 const wiCard = `
 <div class="card mt">
@@ -123,7 +123,7 @@ const tree: [number, string, 'dir' | 'file', boolean, string[]][] = [
 const mark = (m: string) => `<span style="color:${m === 'r' ? C.read : m === 'w' ? C.write : C.warn};font-size:12px">●</span>`
 const treeRows = tree.map(([d, n, k, open, marks]) => {
   const hidden = n.startsWith('.')
-  const chev = k === 'dir' ? img(triangle(open, C.muted)) : ''
+  const chev = k === 'dir' ? `<span class="muted">${open ? '▾' : '▸'}</span>` : ''
   const glyph = ico(k === 'dir' ? (open ? 'folder-open' : 'folder') : 'file', k === 'dir' && !hidden ? C.folder : C.muted, 17)
   return `<div class="row" style="padding-left:${8 + d * 22}px"><span style="width:12px;display:inline-flex">${chev}</span>${glyph}<span class="grow ${hidden ? 'muted' : ''}">${n}</span>${marks.map(mark).join(' ')}</div>`
 }).join('')

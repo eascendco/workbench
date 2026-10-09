@@ -6,6 +6,8 @@ export const ACCENT = '#8f8cf4'
 export const DONE = '#5fbf8f'
 export const DOING = '#BA7517'
 export const MUTED = '#888780'
+/** Each work item stage's color: the pane's stage tags and the band's bar while that stage is current. */
+export const STAGE_COLOR: Record<string, string> = { spec: '#7F77DD', design: '#D4537E', build: '#378ADD', track: '#1D9E75', test: '#BA7517', ship: '#639922' }
 
 export const FONT = "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif"
 const CSS = `<style>
@@ -38,12 +40,12 @@ const noise = (x: number, y: number) => {
   return s - Math.floor(s)
 }
 
-export type BarIn = { done: number; doing: number; total: number; pill: string; finished: boolean }
+export type BarIn = { done: number; doing: number; total: number; pill: string; finished: boolean; color?: string }
 
 /** savvy-flow's bar: dithered fill, a faint layer for work in progress, step ticks, a pill at the head. */
 function barG(x: number, y: number, W: number, H: number, b: BarIn, id: string, track = 'k') {
   const CELL = 3
-  const color = b.finished ? DONE : ACCENT
+  const color = b.finished ? DONE : (b.color ?? ACCENT)
   const fillW = b.total ? Math.round((W * b.done) / b.total) : 0
   const runW = b.total ? Math.round((W * Math.min(b.total, b.done + b.doing)) / b.total) : 0
   const rows = Math.floor(H / CELL)
