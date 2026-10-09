@@ -9,7 +9,7 @@ import type { Plan, PlanFront } from './plans'
 import { allDone, devEntryOf, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
 import {
   absOf, addTouch, badge, baseOf, extOf, FILE_TOOLS, foldersTo, humanSize, isDirty, join,
-  inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY, themeKind, tintOf,
+  inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY, themeKind, tintOf, taskTintOf,
 } from './bench'
 import type { SkinCustom, SkinPrefs, Slot } from './bench'
 import { caps, fileTag, hero, icon, pill, progress, rule, triangle } from './icons'
@@ -653,10 +653,10 @@ export const register: Register = (on, options) => {
         {right ? capsText(key + '-r', right) : null}
       </Box>
     )
-    // A tinted card (Current task, Right now) takes the agents panel's tile color, by the theme setting, and has no border.
+    // A tinted card takes the band's panel color, by the theme setting. The Current task card takes the agents panel's tile color and has no border.
     const benchUi = await read($, benchAtom)
-    const card = (key: string, kids: unknown[], marginTop = 0, tinted = false) => (
-      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={tinted ? tintOf(benchUi.theme) : undefined} borderStyle={tinted ? undefined : 'round'} borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
+    const card = (key: string, kids: unknown[], marginTop = 0, tinted = false, task = false) => (
+      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={task ? taskTintOf(benchUi.theme) : tinted ? tintOf(benchUi.theme) : undefined} borderStyle={task ? undefined : 'round'} borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
         {kids as never}
       </Box>
     )
@@ -738,7 +738,7 @@ export const register: Register = (on, options) => {
             <Button key={'ipd-' + it.id} onPress={() => setStatus($, cur.key, it.id, 'done')}>Done</Button>
           </Box>,
         )
-      task.push(card('ct-card', curKids, 1, true))
+      task.push(card('ct-card', curKids, 1, true, true))
 
       // Work items, in their own box
       const wiKids: unknown[] = [
