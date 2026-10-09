@@ -653,10 +653,10 @@ export const register: Register = (on, options) => {
         {right ? capsText(key + '-r', right) : null}
       </Box>
     )
-    // A tinted card takes the band's panel color, by the theme setting.
+    // A tinted card (Current task, Right now) takes the agents panel's tile color, by the theme setting, and has no border.
     const benchUi = await read($, benchAtom)
     const card = (key: string, kids: unknown[], marginTop = 0, tinted = false) => (
-      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={tinted ? tintOf(benchUi.theme) : undefined} borderStyle="round" borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
+      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={tinted ? tintOf(benchUi.theme) : undefined} borderStyle={tinted ? undefined : 'round'} borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
         {kids as never}
       </Box>
     )
