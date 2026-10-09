@@ -9,7 +9,7 @@ import type { Plan, PlanFront } from './plans'
 import { allDone, devEntryOf, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
 import {
   absOf, addTouch, badge, baseOf, extOf, FILE_TOOLS, foldersTo, humanSize, isDirty, join,
-  inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY, themeKind, tintOf, boxTintOf,
+  inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY, themeKind, tintOf,
 } from './bench'
 import type { SkinCustom, SkinPrefs, Slot } from './bench'
 import { caps, fileTag, hero, icon, pill, progress, rule, triangle } from './icons'
@@ -653,10 +653,10 @@ export const register: Register = (on, options) => {
         {right ? capsText(key + '-r', right) : null}
       </Box>
     )
-    // A tinted card takes the band's panel color, by the theme setting. The two outer boxes are filled and have no border.
+    // A tinted card takes the band's panel color, by the theme setting.
     const benchUi = await read($, benchAtom)
-    const card = (key: string, kids: unknown[], marginTop = 0, tinted = false, box = false) => (
-      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={box ? boxTintOf(benchUi.theme) : tinted ? tintOf(benchUi.theme) : undefined} borderStyle={box ? undefined : 'round'} borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
+    const card = (key: string, kids: unknown[], marginTop = 0, tinted = false) => (
+      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={tinted ? tintOf(benchUi.theme) : undefined} borderStyle="round" borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
         {kids as never}
       </Box>
     )
@@ -980,8 +980,8 @@ export const register: Register = (on, options) => {
 
     return (
       <Box flexDirection="column" alignItems="stretch" width="100%" gap={1}>
-        {card('box-task', [<Text key="bt-h" bold {...c('fg')}>{cur ? `Task · ${cur.short}` : 'Task'}</Text>, ...task], 0, false, true)}
-        {card('box-files', [<Text key="bf-h" bold {...c('fg')}>{`Files: ${baseOf(root) || '/'}`}</Text>, ...fileKids], 0, false, true)}
+        {card('box-task', [<Text key="bt-h" bold {...c('fg')}>{cur ? `Task · ${cur.short}` : 'Task'}</Text>, ...task])}
+        {card('box-files', [<Text key="bf-h" bold {...c('fg')}>{`Files: ${baseOf(root) || '/'}`}</Text>, ...fileKids])}
       </Box>
     )
   })

@@ -31,9 +31,6 @@ export const inkOf = (pal: Palette & { themed: boolean }, slot: Slot): Ink => (p
 /** The tinted cards' background, the band's panel color: by Claude Code's theme setting, else the theme's message background. */
 export const tintOf = (theme?: 'light' | 'dark' | 'auto') => (theme === 'light' ? '#f0eee6' : theme === 'dark' ? '#30302e' : 'userMessageBackground')
 
-/** The Task and Files boxes' background, savvy-progress's agents panel tile color: by Claude Code's theme setting, else the theme's message background. */
-export const boxTintOf = (theme?: 'light' | 'dark' | 'auto') => (theme === 'light' ? '#f4f3f0' : theme === 'dark' ? '#262625' : 'userMessageBackground')
-
 /** Claude Code's theme setting (`light`, `dark-daltonized`, ...) as light, dark or auto. */
 export const themeKind = (value: unknown): 'light' | 'dark' | 'auto' =>
   typeof value !== 'string' ? 'auto' : value.includes('light') ? 'light' : value.includes('dark') ? 'dark' : 'auto'

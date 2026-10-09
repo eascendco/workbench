@@ -24,7 +24,6 @@ body{background:#262624;color:${C.fg};font:14px/1.45 -apple-system,BlinkMacSyste
 .col{display:flex;flex-direction:column}
 .tint{background:#373737}
 .card{border:1px solid #4a4a46;border-radius:12px;padding:10px 16px;display:flex;flex-direction:column;gap:2px}
-.box{border-color:transparent;background:#262625}
 .mt{margin-top:10px}.mt2{margin-top:14px}
 .muted{color:${C.muted}}.bold{font-weight:600}.trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn{border:1px solid #55554f;border-radius:7px;padding:3px 10px;font-size:13px;background:#30302e;color:${C.fg};white-space:nowrap}
@@ -133,11 +132,11 @@ const pane = page(`
 <div class="pane">
   <div class="pane-head"><span>Workbench</span><span>✕</span></div>
   <div class="pane-body">
-    <div class="card box"><span class="bold">Task · weather-app</span>${taskCard}${wiCard}
+    <div class="card"><span class="bold">Task · weather-app</span>${taskCard}${wiCard}
       <div class="row mt"><span class="btn">+ Add work item</span></div>
       <div class="mt">${upNext}</div>
     </div>
-    <div class="card box"><span class="bold">Files: weather-app</span>
+    <div class="card"><span class="bold">Files: weather-app</span>
       <div class="mt">${nowCard}</div>
       <div class="row mt"><div class="input">⌕  Find a file</div></div>
       <div class="row mt" style="flex-wrap:wrap;gap:6px">${['Refresh', 'Collapse all', 'Show sizes', 'Up a folder', 'Back to project', 'Hide hidden files'].map(b => `<span class="btn">${b}</span>`).join('')}</div>
