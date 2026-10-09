@@ -109,7 +109,7 @@ test('the band and the Workbench draw the task from the plan files', async ($, o
   await run($, '')
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'workbench', surface, component: 'Pane', requestId: 'workbench', props: {} } as never)
-    if (surface === 'desktop') expect((await svgs(ui as never, /^Seven-day forecast$/)).length).toBe(1)
+    if (surface === 'desktop') expect((await svgs(ui as never, /^Current task: Seven-day forecast$/)).length).toBe(1)
     else expect(await ui.find({ text: /Seven-day forecast/ })).toBeDefined()
     expect(await ui.find({ text: /Forecast screen/ })).toBeDefined()
     expect(await ui.find({ text: /Offline cache/ })).toBeDefined()

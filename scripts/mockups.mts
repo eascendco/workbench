@@ -2,11 +2,13 @@
 // node scripts/mockups.mts <out dir>, then render each HTML file to PNG (headless Chrome: --screenshot --force-device-scale-factor=2).
 import fs from 'node:fs'
 import { ACCENT, bandBarSvg, bandTitleSvg, DOING } from '../hooks/draw.ts'
-import { caps, disc, fileTag, headline, icon, pill, progress, rule, triangle } from '../hooks/icons.ts'
+import { caps, fileTag, hero, icon, pill, progress, rule, triangle } from '../hooks/icons.ts'
 
 const out = process.argv[2]!
 // The pane's own colors (no skin), on the desktop app's dark theme
 const C = { read: '#c084fc', write: '#fb923c', warn: '#e9c46a', ok: '#4ade80', user: '#60a5fa', fg: '#ececec', muted: '#9a9a96', folder: '#60a5fa', run: '#e9c46a' }
+// The drawings pick light or dark by prefers-color-scheme; the mockups show dark
+const darkHero = (s: string) => s.replace(/\.bg\{fill:#f0eee6\}\.t\{fill:#1f1f1f\}\.m\{fill:#5f5f5c\}@media \(prefers-color-scheme: dark\)\{([^}]*\}[^}]*\}[^}]*\})\}/, '$1')
 const dark = (s: string) => s.replace(/\.t\{fill:#1f1f1f\}[^\n]*\n@media \(prefers-color-scheme: dark\)\{([^\n]*)\}/, '$1')
 const img = (svg: string, alt = '') => `<span class="svg" role="img" aria-label="${alt}">${svg}</span>`
 const ico = (name: Parameters<typeof icon>[0], color: string, size = 16) => img(icon(name, color, size))
@@ -60,12 +62,9 @@ const band = page(`
 
 /* ── the pane ── */
 const sq = (st: keyof typeof SQ) => ico(SQ[st], sqColor(st), 16)
-const head = headline('Seven-day forecast', C.fg, IN2 - 60)
 const taskCard = `
 <div class="card">
-  <div class="row" style="gap:16px">${img(disc('check', C.ok))}
-    <div class="col grow">${capsL('Current task', C.ok)}${img(head.source)}<span class="muted">weather-app · Oct 8 → Oct 10</span></div>
-  </div>
+  ${img(darkHero(hero({ icon: 'check', accent: C.ok, label: 'Current task', title: 'Seven-day forecast', sub: 'weather-app · Oct 8 → Oct 10', w: IN2 })))}
   <div class="mt" style="line-height:0">${img(progress(1, 1, 4, C.ok, C.muted).replace('width="1000"', `width="${IN2}"`))}</div>
   <div class="row between"><span class="muted">1 of 4 done</span><span class="bold" style="color:${C.ok}">25%</span></div>
   <div style="margin:8px 0;line-height:0">${img(rule(C.muted).replace('width="2000"', `width="${IN2}"`))}</div>
@@ -82,12 +81,9 @@ const upNext = `
 ${capsL('Up next')}
 ${[['Severe weather alerts', 'Oct 14'], ['Location search', 'Oct 20'], ['Settings screen', 'Oct 27']].map(([t, d]) => `<div class="row mt"><span style="color:${C.muted}">●</span><span class="grow">${t}</span><span class="muted">${d}</span></div>`).join('')}`
 
-const nowHead = headline('Claude is reading client.ts', C.fg, IN2 - 60)
 const nowCard = `
 <div class="card">
-  <div class="row" style="gap:16px">${img(disc('eye', C.read))}
-    <div class="col grow">${capsL('Right now', C.read)}${img(nowHead.source)}<span class="muted">in src/api</span></div>
-  </div>
+  ${img(darkHero(hero({ icon: 'eye', accent: C.read, label: 'Right now', title: 'Claude is reading client.ts', sub: 'in src/api', w: IN2 })))}
   <div style="margin:8px 0;line-height:0">${img(rule(C.muted).replace('width="2000"', `width="${IN2}"`))}</div>
   <div class="row between"><div class="row">${ico('git-branch', C.user, 18)}<span class="bold">main</span></div><span style="color:${C.warn}">2 not committed</span></div>
   <div class="row mt" style="gap:22px;font-size:13px">

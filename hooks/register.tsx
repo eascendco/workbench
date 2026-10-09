@@ -12,7 +12,7 @@ import {
   inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY,
 } from './bench'
 import type { SkinCustom, SkinPrefs, Slot } from './bench'
-import { caps, disc, fileTag, headline, icon, pill, progress, rule, triangle } from './icons'
+import { caps, fileTag, hero, icon, pill, progress, rule, triangle } from './icons'
 import type { IconName, Ink } from './icons'
 
 const TOOL = 'work_items'
@@ -685,16 +685,17 @@ export const register: Register = (on, options) => {
       }
 
       // Current task: the check disc, the title, the bar; then what is in progress
-      const head = Svg ? headline(cur.title, ink('fg'), room(2) - 44 - 16) : undefined
       const curKids: unknown[] = [
-        <Box key="ct-top" flexDirection="row" columnGap={2} alignItems="center">
-          {Svg ? <Svg key="ct-disc" width={44} height={44} alt="Current task" source={disc('check', ink('ok'))} /> : <Text key="ct-g" {...c('ok')}>✓</Text>}
-          <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
+        // On the desktop the top is one tinted panel in the band's colors, readable in light and dark
+        Svg ? (
+          <Svg key="ct-top" width={room(2)} height={78} alt={`Current task: ${cur.title}`} source={hero({ icon: 'check', accent: ink('ok'), label: 'Current task', title: cur.title, sub: `${cur.short} · ${when}`, w: room(2) })} />
+        ) : (
+          <Box key="ct-top" flexDirection="column">
             {capsText('ct-cap', 'Current task', 'ok')}
-            {Svg && head ? <Svg key="ct-head" width={head.w} height={head.h} alt={cur.title} source={head.source} /> : <Text bold wrap="wrap" {...c('fg')}>{cur.title}</Text>}
+            <Text bold wrap="wrap" {...c('fg')}>{cur.title}</Text>
             <Text wrap="truncate-end" {...c('muted')}>{`${cur.short} · ${when}`}</Text>
           </Box>
-        </Box>,
+        ),
         Svg ? (
           <Box key="ct-bar" marginTop={1} width="100%"><Svg height={8} alt={`${pct}% done`} source={progress(done, doing.length, total, ink('ok'), mutedInk)} /></Box>
         ) : (
@@ -805,18 +806,20 @@ export const register: Register = (on, options) => {
       : { icon: 'coffee' as const, slot: 'muted' as const, verb: '', glyph: '◌' }
     const stateInk = ink(state.slot)
     const headText = now ? `Claude is ${state.verb} ${baseOf(now.path)}` : 'Claude is idle'
-    const textW = room(2) - 44 - 16
-    const head = Svg ? headline(headText, ink('fg'), textW) : undefined
     const sub = now ? `in ${relDir(now.path, root)}` : last ? `last ${last.kind === 'read' ? 'read' : 'edited'} ${baseOf(last.path)}` : 'Waiting for the next file'
     const nowKids: unknown[] = [
-      <Box key="rn-top" flexDirection="row" columnGap={2} alignItems="center">
-        {Svg ? <Svg key="rn-disc" width={44} height={44} alt={headText} source={disc(state.icon, stateInk)} /> : <Text key="rn-g" {...c(state.slot)}>{state.glyph}</Text>}
-        <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
-          {capsText('rn-cap', 'Right now', state.slot)}
-          {Svg && head ? <Svg key="rn-head" width={head.w} height={head.h} alt={headText} source={head.source} /> : <Text bold wrap="truncate-end" {...c('fg')}>{headText}</Text>}
-          <Text wrap="truncate-end" {...c('muted')}>{sub}</Text>
+      Svg ? (
+        <Svg key="rn-top" width={room(2)} height={78} alt={`${headText}, ${sub}`} source={hero({ icon: state.icon, accent: stateInk, label: 'Right now', title: headText, sub, w: room(2) })} />
+      ) : (
+        <Box key="rn-top" flexDirection="row" columnGap={1}>
+          <Text {...c(state.slot)}>{state.glyph}</Text>
+          <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
+            {capsText('rn-cap', 'Right now', state.slot)}
+            <Text bold wrap="truncate-end" {...c('fg')}>{headText}</Text>
+            <Text wrap="truncate-end" {...c('muted')}>{sub}</Text>
+          </Box>
         </Box>
-      </Box>,
+      ),
       divider('rn-hr'),
       <Box key="rn-git" flexDirection="row" justifyContent="space-between" alignItems="center" width="100%">
         <Box flexDirection="row" columnGap={1} alignItems="center">
