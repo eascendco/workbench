@@ -891,7 +891,8 @@ export const register: Register = (on, options) => {
       touchKids.push(
         <Box key={'tc-' + t.path} flexDirection="row" columnGap={1} alignItems="center" marginTop={1} paddingLeft={2} width="100%">
           {Svg ? <Svg key={'tct-' + t.path} width={tag.w} height={tag.h} alt={extOf(t.path) || 'file'} source={tag.source} /> : null}
-          <Box flexShrink={1} minWidth={0}><Text bold wrap="truncate-end" {...c('fg')}>{clip(baseOf(t.path), 20)}</Text></Box>
+          {/* The name, at most 20 characters, never squeezed; the folder after it takes what is left. */}
+          <Box flexShrink={0}><Text bold {...c('fg')}>{clip(baseOf(t.path), 20)}</Text></Box>
           <Box flexGrow={1} flexShrink={2} minWidth={0}><Text wrap="truncate-end" {...c('muted')}>{relDir(t.path, root)}</Text></Box>
           {Svg ? <Svg key={'tcp-' + t.path} width={p.w} height={p.h} alt={badge(t)} source={p.source} /> : <Text bold {...c(slot)}>{badge(t)}</Text>}
         </Box>,
