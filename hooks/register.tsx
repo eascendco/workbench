@@ -3,7 +3,7 @@ import type { EngineInterface, Hook, Register } from 'claude-code'
 
 import type { DevEntry, Entry, Files, Git, Group, PaneUi, Snap, Touch, Activity, WorkbenchUi, WorkItem } from '../types'
 import type { BarIn } from './draw'
-import { ACCENT, bandBarSvg, bandTitleSvg, DOING, DONE, MUTED, STAGE_COLOR } from './draw'
+import { ACCENT, bandBarSvg, bandTitleSvg, DOING, DONE, MUTED, paneBarSvg, STAGE_COLOR } from './draw'
 import { activeItem, byStatus, clip, counts, localDate, newId, nextStatus, parseAdd, STAGES, TITLE_MAX, withStages } from './logic'
 import type { Plan, PlanFront } from './plans'
 import { allDone, devEntryOf, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
@@ -691,6 +691,9 @@ export const register: Register = (on, options) => {
       const doing = cur.items.filter(i => i.status === 'doing')
       const total = cur.items.length
       const pct = total ? Math.round((done / total) * 100) : 0
+      // The bar takes the row less its text (about 7 px a character) and a gap.
+      const tail = `${pct}% · ${total ? `${done} of ${total} done` : 'not broken down'}`
+      const barW = Math.max(60, room(2) - tail.length * 7 - 12)
       const when = cur.start === cur.end ? shortDate(cur.start) : `${shortDate(cur.start)} → ${shortDate(cur.end)}`
       // Each stage in its own color, the one the band's bar takes while that stage is current.
       const stageTag = (key: string, stage: string) => <Text key={key} color={STAGE_COLOR[stage] ?? MUTED}>{stage}</Text>
@@ -723,8 +726,11 @@ export const register: Register = (on, options) => {
           </Box>
         ),
         Svg ? (
-          // The band's bar: the current stage's color and its pill, the percent at the end.
-          <Box key="ct-bar" marginTop={1} width="100%"><Svg width={room(2)} height={20} alt={`${barIn(cur).pill}, ${pct}% done`} source={bandBarSvg(room(2), barIn(cur), total ? `${done} of ${total} done` : 'not broken down')} /></Box>
+          // The band's bar, then the percent and the count flush with the card's right edge.
+          <Box key="ct-bar" flexDirection="row" justifyContent="space-between" alignItems="center" columnGap={1} marginTop={1} width="100%">
+            <Svg width={barW} height={16} alt={`${barIn(cur).pill}, ${pct}% done`} source={paneBarSvg(barW, barIn(cur))} />
+            <Box flexShrink={0}><Text {...c('muted')}>{tail}</Text></Box>
+          </Box>
         ) : (
           <Text key="ct-bar" wrap="truncate-end">
             <Text {...c('ok')}>{'█'.repeat(Math.round((Math.max(8, cols - 12) * done) / Math.max(1, total)))}</Text>

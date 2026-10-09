@@ -78,18 +78,22 @@ function barG(x: number, y: number, W: number, H: number, b: BarIn, id: string, 
 const pct = (b: BarIn) => `${b.total ? Math.round((b.done / b.total) * 100) : 0}%`
 
 /** Band line 2: the bar and the percent, no count. */
-export function bandBarSvg(W: number, b: BarIn, count?: string) {
+export function bandBarSvg(W: number, b: BarIn) {
   const H = 20
   const BAR_H = 16
-  // The pane puts "n of m done" before the percent, on the bar's line.
-  const tail = count ? `${count}  ${pct(b)}` : pct(b)
-  const barW = Math.max(60, W - Math.ceil(textWidth(tail, 12.5)) - 14)
+  const barW = Math.max(60, W - 44)
   return svg(
     W,
     H,
     `${barG(0, (H - BAR_H) / 2, barW, BAR_H, b, 'bb')}
-<text class="m" x="${W}" y="${H / 2 + 4.5}" text-anchor="end" font-family="${FONT}" font-size="12.5" font-variant-numeric="tabular-nums">${xml(tail)}</text>`,
+<text class="m" x="${W}" y="${H / 2 + 4.5}" text-anchor="end" font-family="${FONT}" font-size="12.5" font-variant-numeric="tabular-nums">${pct(b)}</text>`,
   )
+}
+
+/** The pane's bar alone, the band's look; the pane puts its percent and count beside it as text. */
+export function paneBarSvg(W: number, b: BarIn) {
+  const H = 16
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${CSS}${barG(0, 0, W, H, b, 'pb')}</svg>`
 }
 
 /** Band line 1: status dot, project, task title, the item in hand. */

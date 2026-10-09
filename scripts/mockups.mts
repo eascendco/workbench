@@ -1,7 +1,7 @@
 // Mockups of the Workbench band and pane for the README, drawn with the mod's own SVG helpers and invented test data.
 // node scripts/mockups.mts <out dir>, then render each HTML file to PNG (headless Chrome: --screenshot --force-device-scale-factor=2).
 import fs from 'node:fs'
-import { ACCENT, bandBarSvg, bandTitleSvg, DOING, STAGE_COLOR } from '../hooks/draw.ts'
+import { ACCENT, bandBarSvg, bandTitleSvg, DOING, paneBarSvg, STAGE_COLOR } from '../hooks/draw.ts'
 import { caps, fileTag, hero, icon, pill, rule } from '../hooks/icons.ts'
 
 const out = process.argv[2]!
@@ -66,7 +66,7 @@ const sq = (st: keyof typeof SQ) => ico(SQ[st], sqColor(st), 16)
 const taskCard = `
 <div class="card tint">
   ${img(darkHero(hero({ icon: 'check', accent: C.ok, label: 'Current task', title: 'Seven-day forecast', sub: 'weather-app · Oct 8 → Oct 10', w: IN2, panel: false })))}
-  <div class="mt" style="line-height:0">${img(dark(bandBarSvg(IN2, { done: 1, doing: 1, total: 4, pill: 'build', finished: false, color: STAGE_COLOR.build }, '1 of 4 done')))}</div>
+  <div class="row between mt">${img(dark(paneBarSvg(IN2 - 18 * 7 - 12, { done: 1, doing: 1, total: 4, pill: 'build', finished: false, color: STAGE_COLOR.build })))}<span class="muted">25% · 1 of 4 done</span></div>
   <div style="margin:8px 0;line-height:0">${img(rule(C.muted).replace('width="2000"', `width="${IN2}"`))}</div>
   ${capsL('In progress', C.write)}
   <div class="row mt">${sq('doing')}<span class="grow bold">Forecast screen</span><span style="color:${STAGE_COLOR.build}">build</span><span class="btn">Done</span></div>
