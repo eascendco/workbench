@@ -28,16 +28,6 @@ const PLAIN_LIGHT: Palette = { read: '#7c3aed', write: '#c2410c', run: '#a16207'
 /** A drawing's color for `slot`: the skin's, or with no skin a light and dark pair. */
 export const inkOf = (pal: Palette & { themed: boolean }, slot: Slot): Ink => (pal.themed ? pal[slot] : { light: PLAIN_LIGHT[slot], dark: PLAIN_DARK[slot] })
 
-/** The tinted cards' background, the band's panel color: by Claude Code's theme setting, else the theme's message background. */
-export const tintOf = (theme?: 'light' | 'dark' | 'auto') => (theme === 'light' ? '#f0eee6' : theme === 'dark' ? '#30302e' : 'userMessageBackground')
-
-/** The Current task card's background, savvy-progress's agents panel tile color: by Claude Code's theme setting, else the theme's message background. */
-export const taskTintOf = (theme?: 'light' | 'dark' | 'auto') => (theme === 'light' ? '#f4f3f0' : theme === 'dark' ? '#262625' : 'userMessageBackground')
-
-/** Claude Code's theme setting (`light`, `dark-daltonized`, ...) as light, dark or auto. */
-export const themeKind = (value: unknown): 'light' | 'dark' | 'auto' =>
-  typeof value !== 'string' ? 'auto' : value.includes('light') ? 'light' : value.includes('dark') ? 'dark' : 'auto'
-
 /** With no skin, text in these slots takes Claude Code's own theme colors, which follow light and dark. */
 export const THEME_KEY: Partial<Record<Slot, ThemeKey>> = { read: 'suggestion', search: 'suggestion', write: 'claude', run: 'warning', warn: 'warning', ok: 'success', err: 'error', user: 'permission' }
 

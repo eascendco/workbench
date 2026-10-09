@@ -22,8 +22,7 @@ body{background:#262624;color:${C.fg};font:14px/1.45 -apple-system,BlinkMacSyste
 .svg{display:inline-flex;line-height:0}
 .row{display:flex;align-items:center;gap:8px}.between{justify-content:space-between}.grow{flex:1;min-width:0}
 .col{display:flex;flex-direction:column}
-.tint{background:#373737}
-.task{background:#262625;border-color:transparent}
+.tint{background:#262625}
 .card{border:1px solid #4a4a46;border-radius:12px;padding:10px 16px;display:flex;flex-direction:column;gap:2px}
 .mt{margin-top:10px}.mt2{margin-top:14px}
 .muted{color:${C.muted}}.bold{font-weight:600}.trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -65,7 +64,7 @@ const band = page(`
 /* ── the pane ── */
 const sq = (st: keyof typeof SQ) => ico(SQ[st], sqColor(st), 16)
 const taskCard = `
-<div class="card task">
+<div class="card tint">
   ${img(darkHero(hero({ icon: 'check', accent: C.ok, label: 'Current task', title: 'Seven-day forecast', sub: 'weather-app · Oct 8 → Oct 10', w: IN2, panel: false })))}
   <div class="mt" style="line-height:0">${img(progress(1, 1, 4, C.ok, C.muted).replace('width="1000"', `width="${IN2}"`))}</div>
   <div class="row between"><span class="muted">1 of 4 done</span><span class="bold" style="color:${C.ok}">25%</span></div>

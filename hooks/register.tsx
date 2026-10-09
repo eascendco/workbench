@@ -9,7 +9,7 @@ import type { Plan, PlanFront } from './plans'
 import { allDone, devEntryOf, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
 import {
   absOf, addTouch, badge, baseOf, extOf, FILE_TOOLS, foldersTo, humanSize, isDirty, join,
-  inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY, themeKind, tintOf, taskTintOf,
+  inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY,
 } from './bench'
 import type { SkinCustom, SkinPrefs, Slot } from './bench'
 import { caps, fileTag, hero, icon, pill, progress, rule, triangle } from './icons'
@@ -160,15 +160,7 @@ async function startWorkbench($: $) {
   const cwd = await $.session.cwd()
   await update($, filesAtom, f => ({ ...f, project: cwd }))
   void setRoot($, cwd)
-  void readTheme($)
   if (settings.openPane) void openPane($)
-}
-
-/** Claude Code's theme setting, which picks the tinted cards' color. */
-async function readTheme($: $) {
-  const rows = await quiet($.config.list())
-  const theme = themeKind(rows?.find(r => r.key === 'theme')?.value)
-  await update($, benchAtom, b => ({ ...b, theme }))
 }
 
 /** After each turn: commits and checkouts happen in Bash, so the branch line catches up. */
@@ -470,12 +462,6 @@ export const register: Register = (on, options) => {
 
   // `task` is registered at start; `workbench:task` is commands/task.md, which the app lists before a session starts.
   on('turn.complete', afterTurn)
-  // The theme setting picks the tinted cards' color.
-  on('config.set', { key: 'theme' }, async ($, e, next) => {
-    const r = await next(e)
-    await readTheme($)
-    return r
-  })
 
   on('command.run', { command: 'task' }, taskCommand)
   on('command.run', { command: 'workbench:task' }, taskCommand)
@@ -653,10 +639,9 @@ export const register: Register = (on, options) => {
         {right ? capsText(key + '-r', right) : null}
       </Box>
     )
-    // A tinted card takes the band's panel color, by the theme setting. The Current task card takes the agents panel's tile color and has no border.
-    const benchUi = await read($, benchAtom)
-    const card = (key: string, kids: unknown[], marginTop = 0, tinted = false, task = false) => (
-      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={task ? taskTintOf(benchUi.theme) : tinted ? tintOf(benchUi.theme) : undefined} borderStyle={task ? undefined : 'round'} borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
+    // A tinted card (Current task, Right now) takes the app's message surface, which follows light and dark.
+    const card = (key: string, kids: unknown[], marginTop = 0, tinted = false) => (
+      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={tinted ? 'userMessageBackground' : undefined} borderStyle="round" borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
         {kids as never}
       </Box>
     )
@@ -738,7 +723,7 @@ export const register: Register = (on, options) => {
             <Button key={'ipd-' + it.id} onPress={() => setStatus($, cur.key, it.id, 'done')}>Done</Button>
           </Box>,
         )
-      task.push(card('ct-card', curKids, 1, true, true))
+      task.push(card('ct-card', curKids, 1, true))
 
       // Work items, in their own box
       const wiKids: unknown[] = [
