@@ -9,13 +9,14 @@ import type { ThemeKey } from 'claude-code'
 import type { DeckAgent, DeckBucket, DeckCheck, DeckLogLine } from '../types'
 import type { Palette, Slot } from './bench'
 import {
-  cardTitle, consultTimeline, fmtDuration, fmtTimer, fmtUsd, gateSummary, gauge, isAdvising, isLoopActive, kTokens, lanes,
+  cardTitle, consultTimeline, fmtDuration, fmtTimer, fmtUsd, gateSummary, gauge, isAdvising, isLoopActive, kTokens,
   limitLabel, plural, prettyModel, shorten, titleLines,
 } from './deck'
 import type { DeckData } from './deck'
 
-/** Agent cards side by side before lanes; the column usually holds one. */
-const MAX_CARDS = 3
+/** Agent tiles side by side; earlier agents are listed below them, this many rows at most. */
+const TILES = 3
+const EARLIER_ROWS = 6
 const ARCH_LABEL = 'Architect'
 
 type Role = 'main' | 'agent' | 'gate' | 'cleared' | 'arch' | 'amber' | 'warn' | 'dim' | 'faint' | 'text'
@@ -184,69 +185,67 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
     out.push(card('fd-gate', kids, 1))
   }
 
-  // ── agents: cards while they fit, lanes on one time axis beyond that
+  // ── agents: the newest three as tiles side by side, any earlier ones listed below
   if (cards.length > 0) {
     const statusColor = (c: DeckAgent) => (c.status === 'failed' ? col('warn') : c.status === 'done' ? col('gate') : col('agent'))
     const glyph = (c: DeckAgent) => (c.status === 'running' ? '◐' : c.status === 'done' ? '✓' : c.status === 'failed' ? '✗' : '■')
     const expand = (id: string) => () => kit.onExpand(id)
-    const fit = Math.max(1, Math.min(MAX_CARDS, Math.floor((w + 1) / 21)))
-    const useLanes = cards.length > fit
+    const tiles = cards.slice(-TILES)
+    const earlier = cards.slice(0, -TILES).reverse()
+    // Each tile shares the row; its text gets the tile less its border and padding.
+    const inner = Math.max(6, Math.floor((w - (tiles.length - 1)) / tiles.length) - 4)
     const kids: unknown[] = [head('fd-ag-h', `Agents · ${running.length} running · ${cards.length} total`, 'agent')]
-    if (useLanes) {
-      const shown = cards.slice(-6)
-      const geo = lanes(shown, now, w)
-      if (cards.length > shown.length) kids.push(<Text key="fd-ag-more" color={col('faint')}>{`+${cards.length - shown.length} earlier`}</Text>)
-      for (const [i, c] of shown.entries()) {
-        const gm = geo[i]
-        // Two rows in a narrow column: the agent and its clock, then its bar on the shared axis.
-        kids.push(
-          <Box key={'fd-ln-' + c.id} flexDirection="column" marginTop={1} width="100%">
-            <Box flexDirection="row" columnGap={1} alignItems="center" width="100%">
-              <Text color={statusColor(c)}>{glyph(c)}</Text>
-              <Box flexGrow={1} flexShrink={1} minWidth={0}>
-                <Button key={'fd-lb-' + c.id} plain hotkey={String(i + 1)} label={shorten(cardTitle(c), Math.max(8, w - 14))} onPress={expand(c.id)} />
+    kids.push(
+      <Box key="fd-tiles" flexDirection="row" columnGap={1} marginTop={1} width="100%">
+        {tiles.map((c, i) => {
+          const title = titleLines(cardTitle(c), inner - 3, inner)
+          const sameModel = !c.model || prettyModel(c.model) === modelName
+          const isMax = c.lastStop === 'max_tokens'
+          return (
+            <Box key={'fd-cd-' + c.id} flexDirection="column" width={`${Math.floor(100 / tiles.length)}%`} flexShrink={1} minWidth={0}
+              borderStyle={v.expanded === c.id ? 'double' : 'round'} borderColor={isMax ? col('warn') : col('agent')} borderDimColor={c.status !== 'running' && v.expanded !== c.id} paddingX={1}>
+              <Button key={'fd-cb-' + c.id} plain hotkey={String(i + 1)} label={title[0]} onPress={expand(c.id)} />
+              <Text bold wrap="truncate-end">{title[1] || ' '}</Text>
+              <Text color={col('dim')} wrap="truncate-end">{sameModel ? c.type : `${c.type} · ${prettyModel(c.model)}`}</Text>
+              <Text dimColor wrap="truncate-end">{c.steps > 0 ? `${kTokens(c.ctx)} ctx · ${c.steps} st` : 'starting…'}</Text>
+              <Box flexDirection="row" columnGap={1}>
+                <Text color={isMax ? col('warn') : statusColor(c)} wrap="truncate-end">{`${glyph(c)} ${isMax ? 'max_tokens' : c.status}`}</Text>
+                <Box flexShrink={0}>{clock('fd-cc-' + c.id, c.spawnedAt, c.endedAt, col('dim'))}</Box>
               </Box>
-              <Box flexShrink={0}>{clock('fd-lc-' + c.id, c.spawnedAt, c.endedAt, col('dim'))}</Box>
             </Box>
-            <Text wrap="truncate-end">
-              <Text color={col('faint')}>{'·'.repeat(gm?.before ?? 0)}</Text>
-              <Text color={statusColor(c)}>{'━'.repeat(gm?.bar ?? 1)}</Text>
-              <Text color={col('faint')}>{'·'.repeat(gm?.after ?? 0)}</Text>
-            </Text>
-          </Box>,
-        )
-      }
-    } else
-      for (const [i, c] of cards.slice(-fit).entries()) {
-        const title = titleLines(cardTitle(c), w - 9, w - 6)
-        const sameModel = !c.model || prettyModel(c.model) === modelName
+          )
+        })}
+      </Box>,
+    )
+    if (earlier.length) {
+      kids.push(<Box key="fd-ag-earlier" marginTop={1}>{capsText('fd-ag-earlier-l', `Earlier · ${earlier.length}`, slot('dim'))}</Box>)
+      for (const [i, c] of earlier.slice(0, EARLIER_ROWS).entries())
         kids.push(
-          <Box key={'fd-cd-' + c.id} flexDirection="column" marginTop={1} width="100%" borderStyle={v.expanded === c.id ? 'double' : 'round'}
-            borderColor={c.lastStop === 'max_tokens' ? col('warn') : col('agent')} borderDimColor={c.status !== 'running'} paddingX={1}>
-            <Button key={'fd-cb-' + c.id} plain hotkey={String(i + 1)} label={title[0]} onPress={expand(c.id)} />
-            {title[1] ? <Text bold wrap="truncate-end">{title[1]}</Text> : null}
-            <Text color={col('dim')} wrap="truncate-end">{sameModel ? c.type : `${c.type} · ${prettyModel(c.model)}`}</Text>
-            <Text dimColor wrap="truncate-end">{c.steps > 0 ? `ctx ${kTokens(c.ctx)} · out ${kTokens(c.out)} · ${c.steps} st` : 'starting…'}</Text>
-            <Box flexDirection="row" columnGap={1}>
-              <Text color={c.lastStop === 'max_tokens' ? col('warn') : statusColor(c)}>{`${glyph(c)} ${c.lastStop === 'max_tokens' ? 'max_tokens' : c.status}`}</Text>
-              <Box flexShrink={0}>{clock('fd-cc-' + c.id, c.spawnedAt, c.endedAt, col('dim'))}</Box>
+          <Box key={'fd-er-' + c.id} flexDirection="row" columnGap={1} alignItems="center" width="100%">
+            <Text color={statusColor(c)}>{glyph(c)}</Text>
+            <Box flexGrow={1} flexShrink={1} minWidth={0}>
+              <Button key={'fd-eb-' + c.id} plain hotkey={i + TILES < 9 ? String(i + TILES + 1) : undefined} label={shorten(cardTitle(c), Math.max(8, w - 18))} onPress={expand(c.id)} />
             </Box>
+            {c.steps > 0 ? <Text dimColor>{`${kTokens(c.ctx)} ctx`}</Text> : null}
+            <Box flexShrink={0}>{clock('fd-ec-' + c.id, c.spawnedAt, c.endedAt, col('dim'))}</Box>
           </Box>,
         )
-      }
+      if (earlier.length > EARLIER_ROWS) kids.push(<Text key="fd-ag-more" color={col('faint')}>{`+${earlier.length - EARLIER_ROWS} more`}</Text>)
+    }
     const x = cards.find(c => c.id === v.expanded)
     if (x) {
       kids.push(
         <Box key="fd-exp" flexDirection="column" marginTop={1} width="100%" borderStyle="single" borderColor={col('agent')} paddingX={1}>
           <Text bold wrap="wrap">{x.description || x.type}</Text>
           <Text dimColor wrap="truncate-end">{`${x.type} · ${prettyModel(x.model)} · ${x.status} · ${plural(x.steps, 'step')}`}</Text>
+          {x.steps > 0 ? <Text dimColor wrap="truncate-end">{`ctx ${kTokens(x.ctx)} · out ${kTokens(x.out)}`}</Text> : null}
           {x.tools.length === 0 ? <Text color={col('faint')}>no tool calls yet</Text> : null}
           {x.tools.map((n, i) => <Text key={'fd-et-' + i} color={n.isError ? col('warn') : col('text')} wrap="truncate-end">{`${n.isError ? '✗' : '·'} ${n.text}`}</Text>)}
           {x.answer ? <Text dimColor wrap="wrap">{`» ${shorten(x.answer, 240)}`}</Text> : null}
         </Box>,
       )
     }
-    kids.push(<Text key="fd-ag-hint" color={col('faint')}>{`${useLanes ? `1-${Math.min(6, cards.length)}` : '1'} expand · focus the pane with ctrl+x tab`}</Text>)
+    kids.push(<Text key="fd-ag-hint" color={col('faint')}>{`press an agent to expand it · 1-${Math.min(9, cards.length)} when the pane has focus`}</Text>)
     out.push(card('fd-agents', kids, 1))
   }
 

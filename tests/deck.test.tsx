@@ -149,22 +149,24 @@ test('the gate fills from checks, a row opens its redacted drill-down, and Reset
   await ui.unmount()
 })
 
-test('one subagent is a card; more than fit become lanes; a card expands', async ($, on) => {
+test('the newest three agents are tiles; earlier ones are listed below; a tile expands', async ($, on) => {
   world(on)
   let n = 0
   on('agent.spawn', () => ({ model: 'claude-opus-5-5', agentId: `w${++n}` }))
   await $.session.start({ source: 'startup', cwd: ROOT } as never)
   await $.turn.start({ text: 'go', turnId: 'W1' })
   await $.agent.spawn(spawn('Explore', 'task alpha'))
-  const ui = await $.ui.mount(pane('terminal'))
+  const ui = await $.ui.mount(pane('terminal', 90))
   await ui.press({ key: 'bd-toggle' })
   expect(await ui.find({ text: /1 running · 1 total/i })).toBeDefined()
-  expect(await ui.find({ text: /━/ })).toBeUndefined()
   await ui.press({ key: 'fd-cb-w1' })
   expect(await ui.find({ text: /no tool calls yet/ })).toBeDefined()
-  await $.agent.spawn(spawn('Explore', 'task beta'))
-  expect(await ui.find({ text: /━/ })).toBeDefined()
-  expect(await ui.find({ text: /task beta/ })).toBeDefined()
+  for (const d of ['beta', 'gamma', 'delta', 'epsilon']) await $.agent.spawn(spawn('Explore', `task ${d}`))
+  // Tiles: gamma, delta, epsilon. Listed below, newest first: beta, alpha.
+  for (const id of ['w3', 'w4', 'w5']) expect(await ui.find({ key: 'fd-cb-' + id })).toBeDefined()
+  for (const id of ['w2', 'w1']) expect(await ui.find({ key: 'fd-eb-' + id })).toBeDefined()
+  expect(await ui.find({ key: 'fd-cb-w1' })).toBeUndefined()
+  expect(await ui.find({ text: /Earlier · 2/i })).toBeDefined()
   await ui.unmount()
 })
 
