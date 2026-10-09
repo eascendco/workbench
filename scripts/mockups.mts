@@ -93,6 +93,11 @@ const nowCard = `
     <span><span style="color:${C.warn}">●</span> <span class="muted">Not committed</span></span>
   </div>
 </div>`
+// The file Claude is on right now: its name in the kind's color with a band of light partway across (the shimmer, caught mid-sweep).
+const shim = (n: string, col: string, at = 3) => `<span class="bold" style="color:${col}">${n.slice(0, at)}<span style="color:#ffffff;text-shadow:0 0 6px ${col}">${n.slice(at, at + 3)}</span>${n.slice(at + 3)}</span>`
+// A file edited this turn: lit in the edit color until the next prompt.
+const lit = (n: string) => `<span class="bold" style="color:${C.write}">${n}</span>`
+const SESSIONS_LINE = 'In Flight · 1 waiting · 2 working · 1 done'
 const touched = [
   ['src/api/client.ts', 'src/api', 'Reading', C.read],
   ['ForecastScreen.tsx', 'src/screens', 'Edited', C.write],
@@ -102,7 +107,7 @@ const ext = (n: string) => n.slice(n.lastIndexOf('.') + 1)
 const touchCard = `
 <div class="card">
   <div class="row between">${capsL('Claude touched')}${capsL('3 files')}</div>
-  ${touched.map(([n, d, b, col]) => { const t = fileTag(ext(n), C.run); const p = pill(b, col); return `<div class="row mt" style="padding-left:14px">${img(t.source)}<span class="bold">${n.split('/').pop()}</span><span class="grow muted trunc">${d}</span>${img(p.source)}</div>` }).join('')}
+  ${touched.map(([n, d, b, col]) => { const t = fileTag(ext(n), C.run); const p = pill(b, col); const base = n.split('/').pop()!; const name = b === 'Reading' ? shim(base, C.read) : n === 'ForecastScreen.tsx' ? lit(base) : `<span class="bold">${base}</span>`; return `<div class="row mt" style="padding-left:14px">${img(t.source)}${name}<span class="grow muted trunc">${d}</span>${img(p.source)}</div>` }).join('')}
 </div>`
 const tree: [number, string, 'dir' | 'file', boolean, string[]][] = [
   [0, '.github', 'dir', false, []],
@@ -124,8 +129,10 @@ const mark = (m: string) => `<span style="color:${m === 'r' ? C.read : m === 'w'
 const treeRows = tree.map(([d, n, k, open, marks]) => {
   const hidden = n.startsWith('.')
   const chev = k === 'dir' ? `<span class="muted">${open ? '⏷' : '⏵'}</span>` : ''
-  const glyph = ico(k === 'dir' ? (open ? 'folder-open' : 'folder') : 'file', k === 'dir' && !hidden ? C.folder : C.muted, 17)
-  return `<div class="row" style="padding-left:${8 + d * 22}px"><span style="width:12px;display:inline-flex">${chev}</span>${glyph}<span class="grow ${hidden ? 'muted' : ''}">${n}</span>${marks.map(mark).join(' ')}</div>`
+  const hot = n === 'client.ts' ? C.read : n === 'ForecastScreen.tsx' ? C.write : ''
+  const glyph = ico(k === 'dir' ? (open ? 'folder-open' : 'folder') : 'file', hot || (k === 'dir' && !hidden ? C.folder : C.muted), 17)
+  const name = n === 'client.ts' ? shim(n, C.read, 2) : n === 'ForecastScreen.tsx' ? lit(n) : n
+  return `<div class="row" style="padding-left:${8 + d * 22}px"><span style="width:12px;display:inline-flex">${chev}</span>${glyph}<span class="grow ${hidden ? 'muted' : ''}">${name}</span>${marks.map(mark).join(' ')}</div>`
 }).join('')
 
 const pane = page(`
@@ -144,7 +151,7 @@ const pane = page(`
       <div class="row between mt2" style="padding:0 2px">${capsL('All files')}${capsL('weather-app')}</div>
       <div class="tree mt">${treeRows}</div>
     </div>
-    <div class="card"><span class="row"><span class="muted">▶</span>${img(icon('gauge', C.write, 16))}<span>In Flight</span></span></div>
+    <div class="card"><span class="row"><span class="muted">▶</span>${img(icon('gauge', C.write, 16))}<span>${SESSIONS_LINE}</span></span></div>
   </div>
 </div>`)
 
@@ -177,12 +184,21 @@ const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${infl
         <div>${dm('effort ')}${sp(TH.claude, '▮▮▮▯ ')}${sp(TH.claude, 'high', 'font-weight:600')}${dm('  mode auto  42 req')}</div>
         <div>${dm('ctx ')}<span class="mono">${sp(TH.claude, '▰▰▰▰▰')}${sp(TH.subtle, '▱▱▱▱▱▱▱▱▱▱▱')}</span><span class="bold"> 31%</span>${dm(' 62k/200k')}${sp(TH.warn, '  ⟲1')}</div>
         <div class="row wrap">${sp(TH.text, '$4.82')}<span>${dm('5h ')}<span class="mono">${sp(TH.claude, '▰▰')}${sp(TH.subtle, '▱▱▱')}</span>${dm(' 38%')}</span><span>${dm('7d ')}<span class="mono">${sp(TH.claude, '▰')}${sp(TH.subtle, '▱▱▱▱')}</span>${dm(' 12%')}</span></div>`, 'tint')}
-      ${panel(2, `<div class="row between">${capsL('Architect · on call', C.read)}<span>${dm('consults ')}${sp(TH.merged, '2', 'font-weight:600')}</span></div>
+      ${panel(2, `<div class="row between">${capsL('Sessions')}${dm('1 waiting · 2 working · 1 done')}</div>
+        ${[
+          ['◆ waiting', TH.warn, 'Add the hourly view', '0:48', 'input needed', 'weather-app · desktop'],
+          ['● working', TH.claude, 'Seven-day forecast', '12:04', '', 'weather-app · desktop · this session'],
+          ['● working', TH.claude, 'Fix the login redirect', '3:31', '', 'auth-service · terminal'],
+          ['✓ done', TH.ok, 'Release notes draft', '1h12', '', 'docs · vscode'],
+        ].map(([st, c, name, clock, why, where]) => `<div class="col mt">
+          <div class="row"><span style="width:80px;flex-shrink:0;color:${c};font-weight:${st.startsWith('✓') ? 400 : 600}">${st}</span><span class="grow trunc" style="font-weight:${st.startsWith('✓') ? 400 : 600}">${name}</span>${dm(clock)}</div>
+          <div class="row" style="padding-left:88px">${why ? sp(TH.warn, why) : ''}<span class="grow trunc">${dm(where)}</span></div></div>`).join('')}`)}
+      ${panel(3, `<div class="row between">${capsL('Architect · on call', C.read)}<span>${dm('consults ')}${sp(TH.merged, '2', 'font-weight:600')}</span></div>
         <div class="mono" style="color:${TH.merged}">◆━━─────────────────────────────◆━━━──────────</div>
         <div>${dm('last 3m02s ago · took 41s')}</div>
         <div class="row wrap">${sp(TH.inact, '◇ before a plan')}${sp(TH.inact, '◇ error repeats')}${sp(TH.merged, '◆ before done', 'font-weight:600')}${sp(TH.subtle, '(inferred)')}</div>
         <div class="trunc" style="color:${TH.merged}">» Ship it after one more test of the gate drill-down.</div>`)}
-      ${panel(3, `<div class="row between">${capsL('Gate · permissions', C.ok)}${dm('42 checks')}</div>
+      ${panel(4, `<div class="row between">${capsL('Gate · permissions', C.ok)}${dm('42 checks')}</div>
         <div class="mono">${strip}</div>
         <div class="row wrap"><span>${sp(TH.ok, '■')}${dm(' 34 allowed')}</span><span>${sp(TH.perm, '■')}${dm(' 6 classifier')}</span>${sp(TH.warn, '■ 1 pending')}${sp(TH.err, '✗ 1 denied')}</div>
         <div class="row mt" style="gap:16px"><span>${key('f')} file 24</span><span>${key('s')} shell 14 ▾</span><span>${key('o')} other 4</span></div>
@@ -190,7 +206,7 @@ const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${infl
         <div class="trunc">${sp(TH.perm, '■ ')}${sp(TH.inact, 'classifier ')}Bash → npm test -- deck</div>
         <div class="trunc">${sp(TH.warn, '■ ')}${sp(TH.inact, 'pending&nbsp;&nbsp;&nbsp;&nbsp;')}Bash → curl -H "Authorization: Bearer •••" api</div>
         <div class="trunc">${sp(TH.err, '✗ ')}${sp(TH.inact, 'denied&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')}Bash → rm -rf build</div>`)}
-      ${panel(4, `${capsL('Agents · 2 running · 5 total', C.read)}
+      ${panel(5, `${capsL('Agents · 2 running · 5 total', C.read)}
         <div class="row mt" style="gap:8px;align-items:stretch">
           ${tile('✓', TH.ok, 1, 'Audit the gate', 'redaction rules', 'Explore', '41k ctx · 12 st', 'done', '1:12', false, false)}
           ${tile('◐', TH.sugg, 2, 'Find every', 'caller of addTouch', 'Explore', '28k ctx · 7 st', 'running', '2:05', true, true)}
@@ -204,8 +220,8 @@ const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${infl
           <div>${dm('Explore · Opus 5.5 · running · 7 steps')}</div><div>${dm('ctx 28k · out 3k')}</div>
           <div class="trunc">· Grep → addTouch</div><div class="trunc">· Read → hooks/register.tsx</div><div class="trunc">· Read → hooks/bench.ts</div>
         </div>`)}
-      ${panel(5, `<div class="row">${sp(TH.claude, '◐ opus 5.5 · turn 2:14')}${dm('· 3 edits · 1 error')}</div>`)}
-      ${panel(6, `${capsL('Session log')}
+      ${panel(6, `<div class="row">${sp(TH.claude, '◐ opus 5.5 · turn 2:14')}${dm('· 3 edits · 1 error')}</div>`)}
+      ${panel(7, `${capsL('Session log')}
         ${logRow('14:02', 'you', TH.text, 'add a third card for the agents')}
         ${logRow('14:03', 'architect', TH.merged, 'before a plan · advisor tool')}
         ${logRow('14:04', 'Audit the g…', TH.sugg, 'spawned · Explore')}
@@ -245,7 +261,7 @@ const tasksPane = onePane(`
     ${num(4, `<div class="row mt"><span class="btn">+ Add work item</span></div>`)}
     ${num(5, `<div class="mt">${upNext}</div>`)}
   </div>
-  ${closedRow('Files', 'folder', C.folder)}${closedRow('In Flight', 'gauge', C.write)}`)
+  ${closedRow('Files', 'folder', C.folder)}${closedRow(SESSIONS_LINE, 'gauge', C.write)}`)
 const filesPane = onePane(`
   ${closedRow('Tasks', 'list-checks', C.ok)}
   <div class="card"><span class="row"><span class="muted">▼</span>${img(icon('folder', C.folder, 16))}<span>Files: weather-app</span></span>
@@ -255,7 +271,7 @@ const filesPane = onePane(`
     ${num(5, `<div class="mt">${touchCard}</div>`)}
     ${num(6, `<div class="row between mt2" style="padding:0 2px">${capsL('All files')}${capsL('weather-app')}</div><div class="tree mt">${treeRows}</div>`)}
   </div>
-  ${closedRow('In Flight', 'gauge', C.write)}`)
+  ${closedRow(SESSIONS_LINE, 'gauge', C.write)}`)
 fs.writeFileSync(`${out}/tasks.html`, tasksPane)
 fs.writeFileSync(`${out}/files.html`, filesPane)
 

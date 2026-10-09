@@ -12,7 +12,7 @@ Works with [claude-skins](https://github.com/hellosverre/claude-skins): the pane
 
 ![The band above the prompt: the task, the item in progress and a progress bar](media/band.png)
 
-<img src="media/pane.png" alt="The Workbench pane: Tasks with work items and Up next, Files with Right now, Claude touched and the file tree, and In Flight collapsed" width="420">
+<img src="media/pane.png" alt="The Workbench pane: Tasks with work items and Up next, Files with Right now, Claude touched and the file tree, and In Flight collapsed with its session counts" width="420">
 
 <sub>Mockups drawn with the mod's own drawing code and sample data.</sub>
 
@@ -66,16 +66,15 @@ While Claude works, the file it's reading or editing shimmers in the tree and in
 
 What Claude and its subagents are doing right now, adapted from [claude-flightdeck](https://github.com/scasella/claude-flightdeck) by Stephen Casella (MIT). It only watches: it never blocks or changes a tool call.
 
-**Sessions** sits under the main panel: every Claude Code session running on your machine (desktop app, VS Code, terminal), waiting first, then working, then done, each with its title, folder, where it runs and how long it's been in that state. A waiting session says what it waits for (`input needed`, `dialog open`). Collapsed, the box's header still counts them: `In Flight · 1 waiting · 2 working · 3 done`. It reads the registry Claude Code keeps in `~/.claude/sessions` every 3 seconds and checks each process is still running with `ps`, so closed sessions drop off (macOS and Linux).
-
-<img src="media/inflight.png" alt="The In Flight box expanded, with numbered panels: main model, architect, permission gate, agents, the turn and the session log" width="420">
+<img src="media/inflight.png" alt="The In Flight box expanded, with numbered panels: main model, sessions on this machine, architect, permission gate, agents, the turn and the session log" width="420">
 
 1. **Main.** The model, whether it's working, effort, permission mode and requests so far. The context gauge (⟲ counts compactions), the session's cost and your 5-hour and 7-day limits.
-2. **Architect.** Shows up once Claude consults an advisor or architect agent: each consult on a timeline, when it happened (before a plan, after repeated errors, before done; inferred), and the last advice.
-3. **Gate.** One square per permission check. Green was allowed by your settings, blue by the auto-mode classifier or you, amber is waiting for you, red ✗ was denied; checks inside subagents are dimmed. `file`, `shell` and `other` open the last five checks of that kind, with credentials masked.
-4. **Agents.** The three newest subagents as tiles: task, type, context, steps, status and a running clock. Earlier ones are listed below. Press one to see its last tool calls and the start of its answer.
-5. **Turn.** The turn in progress with its clock, edits and errors, or a receipt for the last one with its cost.
-6. **Session log.** Prompts, spawns, consults, edits, errors and denials as they happen.
+2. **Sessions.** Every Claude Code session running on your machine (desktop app, VS Code, terminal): waiting first, then working, then done, each with its title, folder, where it runs and how long it's been in that state. A waiting session says what it waits for (`input needed`, `dialog open`). Collapsed, the box's header still counts them: `In Flight · 1 waiting · 2 working · 1 done`. It reads the registry Claude Code keeps in `~/.claude/sessions` every 3 seconds and checks each process is still running with `ps`, so closed sessions drop off (macOS and Linux).
+3. **Architect.** Shows up once Claude consults an advisor or architect agent: each consult on a timeline, when it happened (before a plan, after repeated errors, before done; inferred), and the last advice.
+4. **Gate.** One square per permission check. Green was allowed by your settings, blue by the auto-mode classifier or you, amber is waiting for you, red ✗ was denied; checks inside subagents are dimmed. `file`, `shell` and `other` open the last five checks of that kind, with credentials masked.
+5. **Agents.** The three newest subagents as tiles: task, type, context, steps, status and a running clock. Earlier ones are listed below. Press one to see its last tool calls and the start of its answer.
+6. **Turn.** The turn in progress with its clock, edits and errors, or a receipt for the last one with its cost.
+7. **Session log.** Prompts, spawns, consults, edits, errors and denials as they happen.
 
 Panels with nothing to show take no room, and **Reset** clears the box. It reads its data only while open.
 
