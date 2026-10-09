@@ -131,11 +131,11 @@ const pane = page(`
 <div class="pane">
   <div class="pane-head"><span>Workbench</span><span>✕</span></div>
   <div class="pane-body">
-    <div class="card"><span class="bold">Task · weather-app</span>${taskCard}${wiCard}
+    <div class="card"><span class="row"><span class="muted">▼</span><span class="bold">Task · weather-app</span></span>${taskCard}${wiCard}
       <div class="row mt"><span class="btn">+ Add work item</span></div>
       <div class="mt">${upNext}</div>
     </div>
-    <div class="card"><span class="bold">Files: weather-app</span>
+    <div class="card"><span class="row"><span class="muted">▼</span><span class="bold">Files: weather-app</span></span>
       <div class="mt">${nowCard}</div>
       <div class="row mt"><div class="input">⌕  Find a file</div></div>
       <div class="row mt" style="flex-wrap:wrap;gap:6px">${['Refresh', 'Collapse all', 'Show sizes', 'Up a folder', 'Back to project', 'Hide hidden files'].map(b => `<span class="btn">${b}</span>`).join('')}</div>

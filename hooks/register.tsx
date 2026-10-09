@@ -161,10 +161,25 @@ async function startWorkbench($: $) {
   const cwd = await $.session.cwd()
   await update($, filesAtom, f => ({ ...f, project: cwd }))
   void setRoot($, cwd)
+  // The sections as last left, from the store.
+  const sections = sectionsOf(await quiet($.store.get(SECTIONS)))
+  await update($, benchAtom, u => ({ ...u, sections }))
   if (settings.openPane) void openPane($)
 }
 
 /** After each turn: commits and checkouts happen in Bash, so the branch line catches up. */
+/** Which Workbench sections are open, kept across sessions: Tasks open and Files collapsed until changed. */
+const SECTIONS = 'sections'
+type Sections = { tasks: boolean; files: boolean }
+const sectionsOf = (v: unknown): Sections => ({ tasks: true, files: false, ...(v && typeof v === 'object' ? (v as Partial<Sections>) : {}) })
+async function toggleSection($: $, k: keyof Sections) {
+  const ui = await update($, benchAtom, u => {
+    const cur = sectionsOf(u.sections)
+    return { ...u, sections: { ...cur, [k]: !cur[k] } }
+  })
+  await quiet($.store.set(SECTIONS, ui.sections))
+}
+
 const afterTurnWorkbench = ($: $) => {
   void quiet(refreshGit($))
   // The turn is over: Right now goes back to idle.
@@ -641,6 +656,7 @@ export const register: Register = (on, options) => {
     const git = await read($, gitAtom)
     const touched = await read($, touchedAtom)
     const activity = await read($, activityAtom)
+    const open = sectionsOf(ui.sections)
 
     // Text in a skin color; with no skin, Claude Code's theme color for the slot (it follows light and dark).
     const c = (slot: Slot) => (pal.themed ? { color: pal[slot] } : THEME_KEY[slot] ? { color: THEME_KEY[slot] } : slot === 'muted' ? { dimColor: true } : {})
@@ -1002,10 +1018,18 @@ export const register: Register = (on, options) => {
       }
     }
 
+    // A section's header: ▼ open, ▶ collapsed to this one row; the arrow toggles it.
+    const section = (key: string, k: 'tasks' | 'files', title: string) => (
+      <Box key={key + '-h'} flexDirection="row" columnGap={1} alignItems="center">
+        <Button key={key + '-toggle'} plain label={open[k] ? '▼' : '▶'} onPress={() => void toggleSection($, k)} />
+        <Text bold {...c('fg')}>{title}</Text>
+      </Box>
+    )
+
     return (
       <Box flexDirection="column" alignItems="stretch" width="100%" gap={1}>
-        {card('box-task', [<Text key="bt-h" bold {...c('fg')}>{cur ? `Task · ${cur.short}` : 'Task'}</Text>, ...task])}
-        {card('box-files', [<Text key="bf-h" bold {...c('fg')}>{`Files: ${baseOf(root) || '/'}`}</Text>, ...fileKids])}
+        {card('box-task', open.tasks ? [section('bt', 'tasks', cur ? `Task · ${cur.short}` : 'Task'), ...task] : [section('bt', 'tasks', 'Tasks')])}
+        {card('box-files', open.files ? [section('bf', 'files', `Files: ${baseOf(root) || '/'}`), ...fileKids] : [section('bf', 'files', 'Files')])}
       </Box>
     )
   })

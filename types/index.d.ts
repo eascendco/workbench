@@ -51,7 +51,8 @@ export type Files = {
   all: string[]
 }
 export type Git = { isRepo: boolean; branch: string; top: string; dirty: string[] }
-export type WorkbenchUi = { itemsOpen: boolean; adding?: boolean }
+/** `sections`: which of the pane's two cards are open (kept across sessions in the store). */
+export type WorkbenchUi = { itemsOpen: boolean; adding?: boolean; sections?: { tasks: boolean; files: boolean } }
 
 declare module 'claude-code' {
   interface PluginState {
