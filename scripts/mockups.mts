@@ -1,5 +1,5 @@
 // Mockups of the Workbench band and pane for the README, drawn with the mod's own SVG helpers and invented test data.
-// node scripts/mockups.mts <out dir> (band, pane, inflight), then render each HTML file to PNG (headless Chrome: --screenshot --force-device-scale-factor=2).
+// node scripts/mockups.mts <out dir> (band, pane, tasks, files, inflight), then render each HTML file to PNG (headless Chrome: --screenshot --force-device-scale-factor=2).
 import fs from 'node:fs'
 import { ACCENT, bandBarSvg, bandTitleSvg, DOING, paneBarSvg, STAGE_COLOR } from '../hooks/draw.ts'
 import { caps, fileTag, hero, icon, pill, rule } from '../hooks/icons.ts'
@@ -32,6 +32,7 @@ body{background:#262624;color:${C.fg};font:14px/1.45 -apple-system,BlinkMacSyste
 .pane-head{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid #33332f;color:#c9c9c4;font-size:14px}
 .pane-body{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
 .tree .row{height:26px}
+.rel{position:relative}.badge{position:absolute;right:-11px;top:-11px;width:22px;height:22px;border-radius:11px;background:#d97757;color:#1f1f1e;font:700 12px/22px -apple-system,sans-serif;text-align:center;box-shadow:0 0 0 3px #1f1f1e;z-index:1}
 `
 const page = (body: string) => `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${body}</body></html>`
 
@@ -164,7 +165,7 @@ const tile = (g: string, gc: string, n: number, t1: string, t2: string, type: st
 const strip = 'rrrrcrrrrraccrrrrrrsrrcrrrrrrrrrcrrrrdrrrr'.split('').map(k => (k === 'r' ? sp(TH.ok, '■') : k === 'c' ? sp(TH.perm, '■') : k === 'a' ? sp(TH.warn, '■') : k === 'd' ? sp(TH.err, '✗') : sp(TH.ok, '■', 'opacity:.45'))).join('')
 const logRow = (t: string, who: string, wc: string, text: string, tc = TH.text) => `<div class="row"><span style="width:44px;flex-shrink:0;color:${TH.subtle}">${t}</span><span class="trunc bold" style="width:86px;flex-shrink:0;color:${wc}">${who}</span><span class="grow trunc" style="color:${tc}">${text}</span></div>`
 const collapsedRow = (name: string, ic: Parameters<typeof icon>[0], c: string) => `<div class="card"><span class="row"><span class="muted">▶</span>${img(icon(ic, c, 16))}<span>${name}</span></span></div>`
-const inflightCss = css + `.rel{position:relative}.badge{position:absolute;right:-11px;top:-11px;width:22px;height:22px;border-radius:11px;background:${TH.claude};color:#1f1f1e;font:700 12px/22px -apple-system,sans-serif;text-align:center;box-shadow:0 0 0 3px #1f1f1e}
+const inflightCss = css + `
 .mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;letter-spacing:-.5px}.wrap{flex-wrap:wrap;column-gap:16px}`
 const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${inflightCss}</style></head><body>
 <div class="pane">
@@ -218,6 +219,45 @@ const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${infl
   </div>
 </div></body></html>`
 fs.writeFileSync(`${out}/inflight.html`, inflight)
+
+/* ── Tasks and Files on their own, numbered like In Flight; the README explains each number ── */
+const num = (n: number, inner: string, cls = '') => `<div class="rel ${cls}"><span class="badge">${n}</span>${inner}</div>`
+const closedRow = (name: string, ic: Parameters<typeof icon>[0], c: string) => `<div class="card"><span class="row"><span class="muted">▶</span>${img(icon(ic, c, 16))}<span>${name}</span></span></div>`
+const onePane = (body: string) => page(`<div class="pane"><div class="pane-head"><span>Workbench</span><span>✕</span></div><div class="pane-body">${body}</div></div>`)
+const nowTop = `<div class="card tint">${img(darkHero(hero({ icon: 'eye', accent: C.read, label: 'Right now', title: 'Claude is reading client.ts', sub: 'in src/api', w: IN2, panel: false })))}`
+const nowGit = `<div style="margin:8px 0;line-height:0">${img(rule(C.muted).replace('width="2000"', `width="${IN2}"`))}</div>
+  <div class="row between"><div class="row">${ico('git-branch', C.user, 18)}<span class="bold">main</span></div><span style="color:${C.warn}">2 not committed</span></div>
+  <div class="row mt" style="gap:22px;font-size:13px">
+    <span><span style="color:${C.read}">●</span> <span class="muted">Claude read</span></span>
+    <span><span style="color:${C.write}">●</span> <span class="muted">Claude edited</span></span>
+    <span><span style="color:${C.warn}">●</span> <span class="muted">Not committed</span></span>
+  </div>`
+const tasksPane = onePane(`
+  <div class="card"><span class="row"><span class="muted">▼</span>${img(icon('list-checks', C.ok, 16))}<span>Task · weather-app</span></span>
+    <div class="card tint rel"><span class="badge">1</span>
+      ${img(darkHero(hero({ icon: 'check', accent: C.ok, label: 'Current task', title: 'Seven-day forecast', sub: 'weather-app · Oct 8 → Oct 10', w: IN2, panel: false })))}
+      <div class="row between mt">${img(dark(paneBarSvg(IN2 - 18 * 7 - 12, { done: 1, doing: 1, total: 4, pill: 'build', finished: false, color: STAGE_COLOR.build })))}<span class="muted">25% · 1 of 4 done</span></div>
+      <div style="margin:8px 0;line-height:0">${img(rule(C.muted).replace('width="2000"', `width="${IN2}"`))}</div>
+      ${num(2, `${capsL('In progress', C.write)}
+      <div class="row mt">${sq('doing')}<span class="grow bold">Forecast screen</span><span style="color:${STAGE_COLOR.build}">build</span><span class="btn">Done</span></div>`)}
+    </div>
+    ${num(3, wiCard)}
+    ${num(4, `<div class="row mt"><span class="btn">+ Add work item</span></div>`)}
+    ${num(5, `<div class="mt">${upNext}</div>`)}
+  </div>
+  ${closedRow('Files', 'folder', C.folder)}${closedRow('In Flight', 'gauge', C.write)}`)
+const filesPane = onePane(`
+  ${closedRow('Tasks', 'list-checks', C.ok)}
+  <div class="card"><span class="row"><span class="muted">▼</span>${img(icon('folder', C.folder, 16))}<span>Files: weather-app</span></span>
+    <div class="mt rel"><span class="badge">1</span>${nowTop}${num(2, nowGit)}</div></div>
+    ${num(3, `<div class="row mt"><div class="input">⌕  Find a file</div></div>`)}
+    ${num(4, `<div class="row mt" style="flex-wrap:wrap;gap:6px">${['Refresh', 'Collapse all', 'Show sizes', 'Up a folder', 'Back to project', 'Hide hidden files'].map(b => `<span class="btn">${b}</span>`).join('')}</div>`)}
+    ${num(5, `<div class="mt">${touchCard}</div>`)}
+    ${num(6, `<div class="row between mt2" style="padding:0 2px">${capsL('All files')}${capsL('weather-app')}</div><div class="tree mt">${treeRows}</div>`)}
+  </div>
+  ${closedRow('In Flight', 'gauge', C.write)}`)
+fs.writeFileSync(`${out}/tasks.html`, tasksPane)
+fs.writeFileSync(`${out}/files.html`, filesPane)
 
 fs.writeFileSync(`${out}/band.html`, band)
 fs.writeFileSync(`${out}/pane.html`, pane)

@@ -1,12 +1,16 @@
 # Workbench
 
-A Claude Code mod that keeps your current task in view while Claude works. A band above the prompt shows the task and its progress. A side pane shows the task's work items, what Claude is reading and editing right now, your git branch, and a file tree.
+A Claude Code mod that keeps your work in view while Claude works. A band above the prompt shows your current task and its progress. A side pane holds three boxes:
 
-Tasks are plain markdown files in a `plans/` folder in your project. You edit them by hand, with `/task`, or Claude edits them as it works. No accounts, no services, no network calls.
+- **Tasks:** the current task, its work items and what's up next, kept as plain markdown files in your project.
+- **Files:** what Claude is reading or editing right now, your branch and uncommitted changes, every file Claude touched and a file tree.
+- **In Flight:** the model, context and cost, every permission check, your subagents and a log of the session.
+
+No accounts, no services, no network calls.
 
 ![The band above the prompt: the task, the item in progress and a progress bar](media/band.png)
 
-<img src="media/pane.png" alt="The Workbench pane: the task box with work items and Up next, the files box with Right now, Claude touched and the file tree, and In Flight collapsed" width="420">
+<img src="media/pane.png" alt="The Workbench pane: Tasks with work items and Up next, Files with Right now, Claude touched and the file tree, and In Flight collapsed" width="420">
 
 <sub>Mockups drawn with the mod's own drawing code and sample data.</sub>
 
@@ -24,6 +28,50 @@ Start a new session and the pane opens. Then start your first task:
 ```
 /task new Seven-day forecast
 ```
+
+## The pane
+
+Three boxes, each collapsing to one row with its arrow, icon or title. Tasks starts open, Files and In Flight closed, and the pane remembers what you left. The arrow at the end of the band opens and closes the pane. In the desktop app the pane draws icons; in a terminal it uses plain text.
+
+### Tasks
+
+Your current task and what's left on it. See [How tasks work](#how-tasks-work) for the files behind it.
+
+<img src="media/tasks.png" alt="The Tasks box with numbered parts: current task, in progress, work items, add work item and Up next" width="420">
+
+1. **Current task.** Its title, project and dates, and a progress bar in the color of the current stage, with the percent and how many items are done.
+2. **In progress.** The items you're working on now. **Done** marks one finished.
+3. **Work items.** Every item with its stage. Click an item's square to move it along: draft, to do, in progress, done. The small arrow folds the list.
+4. **Add work item.** Type a title, or `stage: title` to pick the stage.
+5. **Up next.** The next three open tasks by date.
+
+### Files
+
+What Claude is doing in your project, and the project itself.
+
+<img src="media/files.png" alt="The Files box with numbered parts: right now, branch and changes, find a file, tree buttons, Claude touched and all files" width="420">
+
+1. **Right now.** What Claude is doing this turn: reading or editing a file, running a command, searching, or thinking. Between turns it shows the last file Claude touched.
+2. **Branch and changes.** Your git branch and how many files aren't committed, with the key for the dots below.
+3. **Find a file.** Searches every file in the project as you type. Enter opens the first match in the tree.
+4. **Tree buttons.** Refresh, collapse all, show sizes, go up a folder, go back to the project, show or hide hidden files.
+5. **Claude touched.** The last five files Claude read or edited this session, with their folder and whether it's reading or edited them.
+6. **All files.** The project tree. Dots mark files Claude read (purple) or edited (orange) and files not yet committed (yellow). A folder shows the dots of what's inside it.
+
+### In Flight
+
+What Claude and its subagents are doing right now, adapted from [claude-flightdeck](https://github.com/scasella/claude-flightdeck) by Stephen Casella (MIT). It only watches: it never blocks or changes a tool call.
+
+<img src="media/inflight.png" alt="The In Flight box expanded, with numbered panels: main model, architect, permission gate, agents, the turn and the session log" width="420">
+
+1. **Main.** The model, whether it's working, effort, permission mode and requests so far. The context gauge (⟲ counts compactions), the session's cost and your 5-hour and 7-day limits.
+2. **Architect.** Shows up once Claude consults an advisor or architect agent: each consult on a timeline, when it happened (before a plan, after repeated errors, before done; inferred), and the last advice.
+3. **Gate.** One square per permission check. Green was allowed by your settings, blue by the auto-mode classifier or you, amber is waiting for you, red ✗ was denied; checks inside subagents are dimmed. `file`, `shell` and `other` open the last five checks of that kind, with credentials masked.
+4. **Agents.** The three newest subagents as tiles: task, type, context, steps, status and a running clock. Earlier ones are listed below. Press one to see its last tool calls and the start of its answer.
+5. **Turn.** The turn in progress with its clock, edits and errors, or a receipt for the last one with its cost.
+6. **Session log.** Prompts, spawns, consults, edits, errors and denials as they happen.
+
+Panels with nothing to show take no room, and **Reset** clears the box. It reads its data only while open.
 
 ## How tasks work
 
@@ -73,29 +121,6 @@ Claude gets a `work_items` tool to create tasks, add items and update their stat
 | `/task break` | Ask Claude to draft the work items |
 | `/task pane` | Open the side pane |
 | `/task <anything else>` | Ask Claude, with the task and its plan file attached |
-
-## The pane
-
-**Task box.** The current task with a progress bar and what's in progress. The work items, where clicking an item's square moves it along. A `+ Add work item` button. Up next.
-
-**Files box.** What Claude is reading or editing right now, your branch and how many files aren't committed. Find a file, with buttons to refresh, collapse all, show sizes, go up a folder, go back to the project and show or hide hidden files. Every file Claude touched this session. The file tree, with a dot on files Claude read or edited and on files not yet committed.
-
-**In Flight.** What Claude and its subagents are doing right now, adapted from [claude-flightdeck](https://github.com/scasella/claude-flightdeck) by Stephen Casella (MIT). It only watches: it never blocks or changes a tool call.
-
-<img src="media/inflight.png" alt="The In Flight box expanded, with numbered panels: main model, architect, permission gate, agents, the turn and the session log" width="420">
-
-1. **Main.** The model, whether it's working, effort, permission mode and requests so far. The context gauge (⟲ counts compactions), the session's cost and your 5-hour and 7-day limits.
-2. **Architect.** Shows up once Claude consults an advisor or architect agent: each consult on a timeline, when it happened (before a plan, after repeated errors, before done; inferred), and the last advice.
-3. **Gate.** One square per permission check. Green was allowed by your settings, blue by the auto-mode classifier or you, amber is waiting for you, red ✗ was denied; checks inside subagents are dimmed. `file`, `shell` and `other` open the last five checks of that kind, with credentials masked.
-4. **Agents.** The three newest subagents as tiles: task, type, context, steps, status and a running clock. Earlier ones are listed below. Press one to see its last tool calls and the start of its answer.
-5. **Turn.** The turn in progress with its clock, edits and errors, or a receipt for the last one with its cost.
-6. **Session log.** Prompts, spawns, consults, edits, errors and denials as they happen.
-
-Panels with nothing to show take no room, and **Reset** clears the box. It reads its data only while open.
-
-Each box collapses to one row. Tasks starts open, Files and In Flight closed, and the pane remembers what you left.
-
-The arrow at the end of the band opens and closes the pane. In the desktop app the pane draws icons; in a terminal it uses plain text.
 
 ## Settings
 
