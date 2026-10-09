@@ -638,8 +638,9 @@ export const register: Register = (on, options) => {
         {right ? capsText(key + '-r', right) : null}
       </Box>
     )
-    const card = (key: string, kids: unknown[], marginTop = 0) => (
-      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} borderStyle="round" borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
+    // A tinted card takes the theme's message background, which follows light and dark mode.
+    const card = (key: string, kids: unknown[], marginTop = 0, tinted = false) => (
+      <Box key={key} flexDirection="column" alignItems="stretch" width="100%" marginTop={marginTop} backgroundColor={tinted ? 'userMessageBackground' : undefined} borderStyle="round" borderColor={pal.themed ? pal.muted : undefined} borderDimColor={!pal.themed} paddingX={2} paddingY={1}>
         {kids as never}
       </Box>
     )
@@ -686,9 +687,9 @@ export const register: Register = (on, options) => {
 
       // Current task: the check disc, the title, the bar; then what is in progress
       const curKids: unknown[] = [
-        // On the desktop the top is one tinted panel in the band's colors, readable in light and dark
+        // On the desktop the top is one drawing; the card under it is tinted
         Svg ? (
-          <Svg key="ct-top" width={room(2)} height={78} alt={`Current task: ${cur.title}`} source={hero({ icon: 'check', accent: ink('ok'), label: 'Current task', title: cur.title, sub: `${cur.short} · ${when}`, w: room(2) })} />
+          <Svg key="ct-top" width={room(2)} height={78} alt={`Current task: ${cur.title}`} source={hero({ icon: 'check', accent: ink('ok'), label: 'Current task', title: cur.title, sub: `${cur.short} · ${when}`, w: room(2), panel: false })} />
         ) : (
           <Box key="ct-top" flexDirection="column">
             {capsText('ct-cap', 'Current task', 'ok')}
@@ -721,7 +722,7 @@ export const register: Register = (on, options) => {
             <Button key={'ipd-' + it.id} onPress={() => setStatus($, cur.key, it.id, 'done')}>Done</Button>
           </Box>,
         )
-      task.push(card('ct-card', curKids, 1))
+      task.push(card('ct-card', curKids, 1, true))
 
       // Work items, in their own box
       const wiKids: unknown[] = [
@@ -809,7 +810,7 @@ export const register: Register = (on, options) => {
     const sub = now ? `in ${relDir(now.path, root)}` : last ? `last ${last.kind === 'read' ? 'read' : 'edited'} ${baseOf(last.path)}` : 'Waiting for the next file'
     const nowKids: unknown[] = [
       Svg ? (
-        <Svg key="rn-top" width={room(2)} height={78} alt={`${headText}, ${sub}`} source={hero({ icon: state.icon, accent: stateInk, label: 'Right now', title: headText, sub, w: room(2) })} />
+        <Svg key="rn-top" width={room(2)} height={78} alt={`${headText}, ${sub}`} source={hero({ icon: state.icon, accent: stateInk, label: 'Right now', title: headText, sub, w: room(2), panel: false })} />
       ) : (
         <Box key="rn-top" flexDirection="row" columnGap={1}>
           <Text {...c(state.slot)}>{state.glyph}</Text>
@@ -834,7 +835,7 @@ export const register: Register = (on, options) => {
         <Text><Text {...c('warn')}>● </Text><Text {...c('muted')}>Not committed</Text></Text>
       </Box>,
     ]
-    fileKids.push(card('rn-card', nowKids, 1))
+    fileKids.push(card('rn-card', nowKids, 1, true))
 
     // Find a file: the whole width
     if (Input)

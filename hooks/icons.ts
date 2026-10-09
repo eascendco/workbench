@@ -141,8 +141,8 @@ export const progress = (done: number, doing: number, total: number, color: Ink,
   )
 }
 
-/** The top of a hero card on a tinted panel, in the band's colors: icon disc, caps label, title, a line under it. */
-export function hero(o: { icon: IconName; accent: Ink; label: string; title: string; sub: string; w: number }) {
+/** The top of a hero card: icon disc, caps label, title, a line under it; on its own tinted panel unless `panel` is false. */
+export function hero(o: { icon: IconName; accent: Ink; label: string; title: string; sub: string; w: number; panel?: boolean }) {
   const [css, c] = paint(o.accent, 'acc')
   const H = 78
   const x = 74
@@ -156,7 +156,7 @@ export function hero(o: { icon: IconName; accent: Ink; label: string; title: str
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${o.w}" height="${H}" viewBox="0 0 ${o.w} ${H}">${css}` +
     `<style>.bg{fill:#f0eee6}.t{fill:#1f1f1f}.m{fill:#5f5f5c}@media (prefers-color-scheme: dark){.bg{fill:#30302e}.t{fill:#ececec}.m{fill:#9a9a96}}</style>` +
-    `<rect class="bg" width="${o.w}" height="${H}" rx="12"/>` +
+    (o.panel === false ? '' : `<rect class="bg" width="${o.w}" height="${H}" rx="12"/>`) +
     `<circle cx="38" cy="${H / 2}" r="22" style="fill:${c}" fill-opacity="0.18"/>` +
     `<g transform="translate(27 ${H / 2 - 11}) scale(${22 / 24})" fill="none" style="stroke:${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${PATHS[o.icon]}</g>` +
     `<text x="${x}" y="24" font-size="11" font-weight="700" letter-spacing="1.6" style="fill:${c}" ${FONT}>${esc(label)}</text>` +
