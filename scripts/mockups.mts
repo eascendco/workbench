@@ -123,7 +123,7 @@ const tree: [number, string, 'dir' | 'file', boolean, string[]][] = [
 const mark = (m: string) => `<span style="color:${m === 'r' ? C.read : m === 'w' ? C.write : C.warn};font-size:12px">●</span>`
 const treeRows = tree.map(([d, n, k, open, marks]) => {
   const hidden = n.startsWith('.')
-  const chev = k === 'dir' ? `<span class="muted">${open ? '▾' : '▸'}</span>` : ''
+  const chev = k === 'dir' ? `<span class="muted">${open ? '⏷' : '⏵'}</span>` : ''
   const glyph = ico(k === 'dir' ? (open ? 'folder-open' : 'folder') : 'file', k === 'dir' && !hidden ? C.folder : C.muted, 17)
   return `<div class="row" style="padding-left:${8 + d * 22}px"><span style="width:12px;display:inline-flex">${chev}</span>${glyph}<span class="grow ${hidden ? 'muted' : ''}">${n}</span>${marks.map(mark).join(' ')}</div>`
 }).join('')

@@ -928,9 +928,9 @@ export const register: Register = (on, options) => {
         const toggle = () => void toggleDir($, r.path)
         const hidden = r.name.startsWith('.')
         // chevron, icon, name: each in its own column so they line up at every depth
-        // A ▸/▾ button on every surface: an invisible button laid over a drawn triangle missed clicks on the desktop.
+        // A triangle button on every surface (⏵/⏷ on the desktop, larger than ▸/▾): an invisible button laid over a drawn triangle missed clicks.
         const chevron = r.dir ? (
-          <Button key={'cv-' + r.path} plain label={r.open ? '▾' : '▸'} onPress={toggle} />
+          <Button key={'cv-' + r.path} plain label={Svg ? (r.open ? '⏷' : '⏵') : r.open ? '▾' : '▸'} onPress={toggle} />
         ) : (
           <Box key={'cv-' + r.path} width={2} flexShrink={0} />
         )
