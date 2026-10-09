@@ -8,7 +8,7 @@ A Claude Code mod that keeps your work in view while Claude works. A band above 
 
 No accounts, no services, no network calls.
 
-Works with [claude-skins](https://github.com/hellosverre/claude-skins): the pane and band take your skin's colors and follow macOS light and dark. See [Works with skins](#works-with-skins).
+Works with [claude-skins](https://github.com/hellosverre/claude-skins): the pane takes your skin's colors and follows macOS light and dark. See [Works with skins](#works-with-skins).
 
 ![The band above the prompt: the task, the item in progress and a progress bar](media/band.png)
 
