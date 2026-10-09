@@ -53,6 +53,8 @@ const SKIN_CUSTOM = { plugin: 'skins', key: 'custom' } as const
 const SKIN_LIGHT = { plugin: 'skins', key: 'isLight' } as const
 
 const quiet = <T,>(p: Promise<T>) => p.catch(() => undefined)
+/** The label of a blank button laid over a drawn icon: two em spaces. Plain spaces collapse to one on the desktop, which left only the icon's left edge clickable. */
+const COVER = '\u2003\u2003'
 
 /* ── files ── */
 
@@ -1083,7 +1085,7 @@ export const register: Register = (on, options) => {
           <Box key={'sq-' + it.id} width={2} height={1} flexShrink={0} justifyContent="center" alignItems="center">
             <Svg width={16} height={16} alt={it.status} source={icon(STATUS_ICON[it.status], statusInk(it.status), 16)} />
             <Box position="absolute" top={0} left={0} right={0} bottom={0}>
-              <Button key={'sqb-' + it.id} plain label="  " onPress={press} />
+              <Button key={'sqb-' + it.id} plain label={COVER} onPress={press} />
             </Box>
           </Box>
         )
@@ -1402,7 +1404,7 @@ export const register: Register = (on, options) => {
             <Box key={key + '-icon'} width={2} height={1} flexShrink={0} justifyContent="center" alignItems="center">
               <Svg width={16} height={16} alt={k} source={icon(SECTION_ICON[k][0], ink(SECTION_ICON[k][1]), 16)} />
               <Box position="absolute" top={0} left={0} right={0} bottom={0}>
-                <Button key={key + '-iconb'} plain label="  " onPress={toggle} />
+                <Button key={key + '-iconb'} plain label={COVER} onPress={toggle} />
               </Box>
             </Box>
           ) : null}
