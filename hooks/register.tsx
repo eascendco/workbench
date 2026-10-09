@@ -624,7 +624,7 @@ export const register: Register = (on, options) => {
       const text = (v: unknown) => (typeof v === 'string' ? v.split('\n')[0]!.trim() : '')
       const act: Activity =
         e.tool === 'Bash' ? { busy: true, kind: 'run', label: text(args.description) || text(args.command) }
-        : e.tool === 'Grep' || e.tool === 'Glob' ? { busy: true, kind: 'search', label: text(args.pattern) }
+        : (e.tool as string) === 'Grep' || (e.tool as string) === 'Glob' ? { busy: true, kind: 'search', label: text(args.pattern) } // where the build has them
         : { busy: true }
       await quiet(update($, activityAtom, a => (act.kind ? act : { ...a, busy: true })))
       return next(e)
@@ -1018,12 +1018,17 @@ export const register: Register = (on, options) => {
       }
     }
 
-    // A section's header, one button across its row: ▼ open, ▶ collapsed to this one row.
-    const section = (key: string, k: 'tasks' | 'files', title: string) => (
-      <Box key={key + '-h'} flexDirection="row" alignItems="center">
-        <Button key={key + '-toggle'} plain onPress={() => void toggleSection($, k)}>{`${open[k] ? '▼' : '▶'} ${title}`}</Button>
-      </Box>
-    )
+    // A section's header: ▼ open, ▶ collapsed to this one row; the arrow and the title toggle it, an icon between them.
+    const section = (key: string, k: 'tasks' | 'files', title: string) => {
+      const toggle = () => void toggleSection($, k)
+      return (
+        <Box key={key + '-h'} flexDirection="row" alignItems="center" columnGap={1}>
+          <Button key={key + '-toggle'} plain label={open[k] ? '▼' : '▶'} onPress={toggle} />
+          {Svg ? <Svg key={key + '-icon'} width={16} height={16} alt={k} source={icon(k === 'tasks' ? 'list-checks' : 'folder', k === 'tasks' ? ink('ok') : ink('user'), 16)} /> : null}
+          <Button key={key + '-name'} plain onPress={toggle}>{title}</Button>
+        </Box>
+      )
+    }
 
     return (
       <Box flexDirection="column" alignItems="stretch" width="100%" gap={1}>
