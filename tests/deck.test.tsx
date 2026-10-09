@@ -3,10 +3,11 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import {
-  adviceLine, afterCall, applyStep, consultTimeline, DEFAULT_ARCHITECT, DEFAULT_GATE, DEFAULT_TURN, describeInput, endConsult,
+  adviceLine, afterCall, alivePids, applyStep, consultTimeline, DEFAULT_ARCHITECT, DEFAULT_GATE, DEFAULT_TURN, describeInput, endConsult,
   gateSummary, handbackOf, lanes, limitLabel, momentOf, normalizeCard, normalizeGate, normalizeLog, prettyModel, promptLine,
-  receiptOf, recordCheck, redact, settleCheck, startConsult, titleLines, trimRecent,
+  parseSessionFile, receiptOf, recordCheck, redact, sessionsLine, sessionsOf, settleCheck, startConsult, titleLines, trimRecent,
 } from '../hooks/deck'
+import type { SessionFile } from '../hooks/deck'
 import type { DeckCheck } from '../types'
 
 /* ── pure behavior ── */
@@ -80,23 +81,57 @@ test('older shapes still read; lanes share one axis; names and lines read as peo
   expect(receiptOf({ ...DEFAULT_TURN, costAtStart: 1, edits: 2 }, { durationMs: 1000, agentsSince: 3, costNow: 1.5, reason: 'answer' }).costDelta).toBe(0.5)
 })
 
+const sessionJson = (pid: number, status: string, more: Record<string, unknown> = {}) =>
+  JSON.stringify({ pid, sessionId: `s${pid}`, cwd: `/Users/x/p${pid}`, kind: 'interactive', entrypoint: 'claude-desktop', status, statusUpdatedAt: pid, ...more })
+
+test('sessions: live ones only, waiting then working then done, named by title or folder', () => {
+  const files = [
+    sessionJson(1, 'idle', { name: 'Old chat' }),
+    sessionJson(2, 'busy'),
+    sessionJson(3, 'waiting', { waitingFor: 'input needed', name: 'Asks a question' }),
+    sessionJson(4, 'busy', { spare: true }),
+    sessionJson(5, 'idle', { kind: 'daemon' }),
+    sessionJson(6, 'shell', { entrypoint: 'claude-vscode' }),
+    sessionJson(7, 'busy'),
+    'not json',
+  ].map(parseSessionFile).filter((f): f is SessionFile => f !== null)
+  expect(files.length).toBe(7)
+  // 7 is a stale file: its pid now belongs to another program.
+  const alive = alivePids('    1 /Applications/Claude.app/claude\n    2 claude\n    3 claude\n    4 claude\n    5 claude\n    6 /x/native-binary/claude\n    7 /bin/zsh\n')
+  const list = sessionsOf(files, alive, 's2')
+  expect(list.map(x => `${x.pid}:${x.status}`)).toEqual(['3:waiting', '6:working', '2:working', '1:done'])
+  expect(list[0]?.detail).toBe('input needed')
+  expect(list.find(x => x.pid === 2)).toMatchObject({ name: 'p2', where: 'desktop', isSelf: true })
+  expect(list.find(x => x.pid === 6)?.where).toBe('vscode')
+  expect(sessionsLine(list)).toBe('1 waiting · 2 working · 1 done')
+  expect(sessionsLine([])).toBe('')
+})
+
 /* ── the card in the Workbench ── */
 
 type On = Parameters<import('claude-code/testing').TestBody>[1]
 const ROOT = '/Users/x/proj'
 
-/** A session with no plans and an empty folder: only the cards' frames matter here. */
-function world(on: On) {
+const SESSIONS = '/Users/x/.claude/sessions'
+
+/** A session with no plans and an empty folder: only the cards' frames matter here. `sessions` are the registry's files, all running. */
+function world(on: On, sessions: Record<string, string> = {}) {
   mock.clock(on)
   mock.env(on, { HOME: '/Users/x' })
   mock.store(on)
   on('session.cwd', async () => ({ value: ROOT }))
   on('fs.exists', async () => ({ value: false }))
-  on('fs.list', async () => ({ value: [] }))
+  on('fs.list', async (_$, e) => ({
+    value: (e as { path?: string }).path === SESSIONS ? Object.keys(sessions).map(name => ({ name, kind: 'file', size: 1, mtimeMs: 0, isLink: false })) : [],
+  }) as never)
+  on('fs.read', async (_$, e) => ({ value: sessions[String((e as { path: string }).path).split('/').pop() ?? ''] ?? '' }) as never)
   on('command.register', async () => ({ value: undefined }) as never)
   on('tool.register', async () => ({ value: undefined }) as never)
   on('session.start', async () => ({ cwd: ROOT }) as never)
-  on('process.run', async () => ({ value: { code: 1, stdout: '', stderr: '' } }) as never)
+  on('process.run', async (_$, e) => {
+    const isPs = (e as { argv: string[] }).argv[0] === 'ps'
+    return { value: isPs ? { exitCode: 0, stdout: Object.keys(sessions).map(n => `${parseInt(n)} claude`).join('\n'), stderr: '' } : { code: 1, stdout: '', stderr: '' } } as never
+  })
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
   on('turn.complete', async () => ({ text: '' }) as never)
   on('ui.open', async () => ({ value: { isPlaced: true } }) as never)
@@ -185,5 +220,22 @@ test('the server-side advisor is read from assistant rows: advising, then on cal
   expect(await ui.find({ text: /◆ before a plan/ })).toBeDefined()
   await row([{ type: 'advisor_tool_result', tool_use_id: 'srv1', content: { type: 'advisor_redacted_result' } }])
   expect(await ui.find({ text: /ARCHITECT · ON CALL/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('Sessions lists every session on this machine; the collapsed header counts them', async ($, on) => {
+  world(on, {
+    '11.json': sessionJson(11, 'waiting', { name: 'Fix the parser', waitingFor: 'input needed' }),
+    '12.json': sessionJson(12, 'busy', { name: 'Ship the band' }),
+    '13.json': sessionJson(13, 'idle', { name: 'Old chat' }),
+  })
+  await $.session.start({ source: 'startup', cwd: ROOT } as never)
+  const ui = await $.ui.mount(pane('terminal'))
+  expect(await ui.find({ type: 'Button', text: /^In Flight · 1 waiting · 1 working · 1 done$/ })).toBeDefined()
+  await ui.press({ key: 'bd-toggle' })
+  expect(await ui.find({ text: /Fix the parser/ })).toBeDefined()
+  expect(await ui.find({ text: /input needed/ })).toBeDefined()
+  expect(await ui.find({ text: /◆ waiting/ })).toBeDefined()
+  expect(await ui.find({ text: /✓ done/ })).toBeDefined()
   await ui.unmount()
 })

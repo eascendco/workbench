@@ -4,7 +4,7 @@ A Claude Code mod that keeps your work in view while Claude works. A band above 
 
 - **Tasks:** the current task, its work items and what's up next, kept as plain markdown files in your project.
 - **Files:** what Claude is reading or editing right now, your branch and uncommitted changes, every file Claude touched and a file tree.
-- **In Flight:** the model, context and cost, every permission check, your subagents and a log of the session.
+- **In Flight:** every Claude Code session on your machine and whether it's working, waiting for you or done; then this session's model, context and cost, every permission check, your subagents and a log.
 
 No accounts, no services, no network calls.
 
@@ -60,9 +60,13 @@ What Claude is doing in your project, and the project itself.
 5. **Claude touched.** The last five files Claude read or edited this session, with their folder and whether it's reading or edited them.
 6. **All files.** The project tree. Dots mark files Claude read (purple) or edited (orange) and files not yet committed (yellow). A folder shows the dots of what's inside it.
 
+While Claude works, the file it's reading or editing shimmers in the tree and in Claude touched, a band of light sweeping across its name (purple reading, orange editing). Files edited this turn stay lit in orange until your next prompt. A closed folder holding one takes the same color on its icon.
+
 ### In Flight
 
 What Claude and its subagents are doing right now, adapted from [claude-flightdeck](https://github.com/scasella/claude-flightdeck) by Stephen Casella (MIT). It only watches: it never blocks or changes a tool call.
+
+**Sessions** comes first: every Claude Code session running on your machine (desktop app, VS Code, terminal), waiting first, then working, then done, each with its title, folder, where it runs and how long it's been in that state. A waiting session says what it waits for (`input needed`, `dialog open`). Collapsed, the box's header still counts them: `In Flight · 1 waiting · 2 working · 3 done`. It reads the registry Claude Code keeps in `~/.claude/sessions` every 3 seconds and checks each process is still running with `ps`, so closed sessions drop off (macOS and Linux).
 
 <img src="media/inflight.png" alt="The In Flight box expanded, with numbered panels: main model, architect, permission gate, agents, the turn and the session log" width="420">
 
@@ -148,7 +152,7 @@ Skins pick light or dark from Claude Code's theme setting, which the desktop app
 
 ## What it reads
 
-Your plan files, folder listings for the tree, and `git status` for the branch and changes. In Flight reads the session's own events (tool calls and their permission verdicts, subagent steps, context and cost) and keeps short summaries for the session only. It reads no file contents beyond the plan files, makes no network calls, and stores nothing outside your project. Run `claude plugin validate` on this folder to see every call it makes.
+Your plan files, folder listings for the tree, and `git status` for the branch and changes. In Flight reads the session's own events (tool calls and their permission verdicts, subagent steps, context and cost) and keeps short summaries for the session only. Sessions reads Claude Code's own session registry in `~/.claude/sessions` (each session's title, folder and status) and runs `ps` to check those processes are alive. It reads no other file contents beyond the plan files, makes no network calls, and stores nothing outside your project. Run `claude plugin validate` on this folder to see every call it makes.
 
 ## Turn it off
 

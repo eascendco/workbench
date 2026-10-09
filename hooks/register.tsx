@@ -12,12 +12,14 @@ import {
   inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, THEME_KEY,
 } from './bench'
 import type { SkinCustom, SkinPrefs, Slot } from './bench'
-import type { DeckAgent, DeckArchitect, DeckCheck, DeckLogLine, DeckLoop, DeckReceipt, DeckView } from '../types'
+import type { DeckAgent, DeckArchitect, DeckCheck, DeckLogLine, DeckLoop, DeckReceipt, DeckSession, DeckView } from '../types'
 import {
   adviceLine, afterCall, applyStep, bucketOf, cardTitle, DEFAULT_ARCHITECT, DEFAULT_GATE, DEFAULT_MAIN, DEFAULT_ROSTER, DEFAULT_TURN,
   DEFAULT_USAGE, DEFAULT_VIEW, describeInput, EDIT_TOOLS, endConsult, fmtDuration, handbackOf, listOf, momentOf, normalize,
   normalizeCard, normalizeGate, normalizeLog, noteTool, promptLine, receiptOf, recordCheck, RESET, settleCheck, shorten, startConsult, stepLoop,
+  alivePids, parseSessionFile, sessionsLine, sessionsOf,
 } from './deck'
+import type { SessionFile } from './deck'
 import type { DeckData } from './deck'
 import { deckKids, deckTitle } from './deck-view'
 import { caps, fileTag, hero, icon, pill, rule } from './icons'
@@ -203,12 +205,36 @@ const turnAtom = atom({ plugin: 'workbench', key: 'deckTurn' } as const, DEFAULT
 const receiptAtom = atom({ plugin: 'workbench', key: 'deckReceipt' } as const, null as DeckReceipt | null)
 const viewAtom = atom({ plugin: 'workbench', key: 'deckView' } as const, DEFAULT_VIEW)
 const rosterAtom = atom({ plugin: 'workbench', key: 'deckRoster' } as const, DEFAULT_ROSTER)
+const sessionsAtom = atom({ plugin: 'workbench', key: 'deckSessions' } as const, [] as DeckSession[])
+
+/** How often the Sessions panel rereads the registry. Read even while In Flight is collapsed: its header counts them. */
+const SESSIONS_MS = 3000
+
+/** Every Claude Code session running on this machine, from the registry under `~/.claude/sessions`; written only when it changed. */
+async function pollSessions($: $) {
+  const home = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${(await $.env.get('HOME')) ?? ''}/.claude`
+  const dir = `${home}/sessions`
+  const names = (await $.fs.list(dir)).filter(f => f.kind === 'file' && /^\d+\.json$/.test(f.name)).map(f => f.name)
+  const files = (await Promise.all(names.map(n => quiet($.fs.read(`${dir}/${n}`)).then(t => (t ? parseSessionFile(t) : null)))))
+    .filter((f): f is SessionFile => f !== null)
+  const pids = files.map(f => f.pid)
+  const ps = pids.length ? await quiet($.process.run(['ps', '-o', 'pid=,comm=', '-p', pids.join(',')], { timeoutMs: 5000 })) : undefined
+  const list = sessionsOf(files, alivePids(ps?.stdout ?? ''), (await quiet($.session.id())) ?? '')
+  const was = await read($, sessionsAtom)
+  if (JSON.stringify(was) !== JSON.stringify(list)) await update($, sessionsAtom, () => list)
+}
+
+async function watchSessions($: $) {
+  await quiet(pollSessions($))
+  $.clock.every(SESSIONS_MS, () => quiet(pollSessions($)))
+}
 
 async function readDeck($: $): Promise<DeckData> {
-  const [main, usage, arch, gate, cards, loops, log, turn, receipt, view, now] = await Promise.all([
-    getMain($), getUsage($), getArch($), getGate($), getCards($), getLoops($), getLog($), getTurn($), read($, receiptAtom), getView($), $.clock.now(),
+  const [main, usage, arch, gate, cards, loops, log, turn, receipt, view, sessions, now] = await Promise.all([
+    getMain($), getUsage($), getArch($), getGate($), getCards($), getLoops($), getLog($), getTurn($), read($, receiptAtom), getView($),
+    getSessions($), $.clock.now(),
   ])
-  return { main, usage, arch, gate, cards, loops, log, turn, receipt, view, now }
+  return { main, usage, arch, gate, cards, loops, log, turn, receipt, view, sessions, now }
 }
 
 /** The card's Reset: agents, checks, consults, log and the turn clear; cost, rate limits and compactions stay. */
@@ -490,6 +516,7 @@ const getLoops = async ($: $) => listOf<DeckLoop>(await read($, loopsAtom))
 const getLog = async ($: $) => normalizeLog(await read($, logAtom))
 const getTurn = async ($: $) => normalize(DEFAULT_TURN, await read($, turnAtom))
 const getView = async ($: $): Promise<DeckView> => normalize(DEFAULT_VIEW, await read($, viewAtom))
+const getSessions = async ($: $) => listOf<DeckSession>(await read($, sessionsAtom))
 const getRoster = async ($: $) => ({ architectTypes: listOf<string>(normalize(DEFAULT_ROSTER, await read($, rosterAtom)).architectTypes) })
 
 async function say($: $, who: string, text: string, kind: DeckLogLine['kind'] = 'info', agentId: string | null = null) {
@@ -862,6 +889,7 @@ export const register: Register = (on, options) => {
     void quiet(deckStart($))
     void startWorkbench($)
     if (settings.followMacos) void quiet(followAppearance($))
+    void quiet(watchSessions($))
     void refresh($)
     return r
   })
@@ -996,7 +1024,7 @@ export const register: Register = (on, options) => {
   // A prompt starts a turn: Right now shows Claude working until the turn ends.
   on('prompt.submit', async ($, e, next) => {
     const r = await next(e)
-    await quiet(update($, activityAtom, () => ({ busy: true })))
+    await quiet(update($, activityAtom, () => ({ busy: true, since: Date.now() })))
     return r
   }).catch(($, e, next) => next(e))
 
@@ -1012,11 +1040,11 @@ export const register: Register = (on, options) => {
         e.tool === 'Bash' ? { busy: true, kind: 'run', label: text(args.description) || text(args.command) }
         : (e.tool as string) === 'Grep' || (e.tool as string) === 'Glob' ? { busy: true, kind: 'search', label: text(args.pattern) } // where the build has them
         : { busy: true }
-      await quiet(update($, activityAtom, a => (act.kind ? act : { ...a, busy: true })))
+      await quiet(update($, activityAtom, a => (act.kind ? { ...act, since: a.since } : { ...a, busy: true })))
       return deckToolCall($, e, next)
     }
     const path = absOf(raw, (await quiet($.session.cwd())) ?? '')
-    await quiet(update($, activityAtom, () => ({ busy: true, kind, path })))
+    await quiet(update($, activityAtom, a => ({ busy: true, kind, path, since: a.since })))
     await quiet(update($, touchedAtom, l => addTouch(l, { path, kind, active: true, at: Date.now() })))
     try {
       return await deckToolCall($, e, next)
@@ -1233,6 +1261,21 @@ export const register: Register = (on, options) => {
     const root = files.root
     // While a turn runs, the last thing Claude did stays up; idle once the turn ends.
     const act = activity.busy ? activity : undefined
+    // The file Claude is on right now shimmers; files edited this turn stay lit until the next prompt.
+    const hotPath = act && (act.kind === 'read' || act.kind === 'edited') ? act.path : undefined
+    const hotSlot: Slot = act?.kind === 'read' ? 'read' : 'write'
+    const editedNow = new Set(touched.filter(t => t.kind === 'edited' && activity.since !== undefined && t.at >= activity.since).map(t => t.path))
+    const tone = (slot: Slot) => (pal.themed ? pal[slot] : THEME_KEY[slot] ?? 'text')
+    const isUnder = (dir: string, set: Iterable<string>) => [...set].some(p => p.startsWith(dir + '/'))
+    /** A file's name: shimmering while Claude is on it, lit if edited this turn, else as `plain` draws it. */
+    const fileName = (key: string, path: string, text: string, plain: () => unknown) =>
+      path === hotPath
+        ? 'Client' in els
+          ? <els.Client key={key + '-sh-' + path} module="./shimmer.tsx" props={{ text, color: tone(hotSlot), shine: tone('fg') }} />
+          : <Text key={key} bold wrap="truncate-end" {...c(hotSlot)}>{text}</Text>
+        : editedNow.has(path)
+          ? <Text key={key} bold wrap="truncate-end" {...c('write')}>{text}</Text>
+          : plain()
     const last = touched[0]
     const dirtyHere = git.dirty.filter(p => p === root || p.startsWith(root + '/'))
     const fileKids: unknown[] = []
@@ -1337,7 +1380,7 @@ export const register: Register = (on, options) => {
         <Box key={'tc-' + t.path} flexDirection="row" columnGap={1} alignItems="center" marginTop={1} paddingLeft={2} width="100%">
           {Svg ? <Svg key={'tct-' + t.path} width={tag.w} height={tag.h} alt={extOf(t.path) || 'file'} source={tag.source} /> : null}
           {/* The name, at most 20 characters, never squeezed; the folder after it takes what is left. */}
-          <Box flexShrink={0}><Text bold {...c('fg')}>{clip(baseOf(t.path), 20)}</Text></Box>
+          <Box flexShrink={0}>{fileName('tcn-' + t.path, t.path, clip(baseOf(t.path), 20), () => <Text bold {...c('fg')}>{clip(baseOf(t.path), 20)}</Text>) as never}</Box>
           <Box flexGrow={1} flexShrink={2} minWidth={0}><Text wrap="truncate-end" {...c('muted')}>{relDir(t.path, root)}</Text></Box>
           {Svg ? <Svg key={'tcp-' + t.path} width={p.w} height={p.h} alt={badge(t)} source={p.source} /> : <Text bold {...c(slot)}>{badge(t)}</Text>}
         </Box>,
@@ -1382,7 +1425,7 @@ export const register: Register = (on, options) => {
         )
         const glyph = Svg ? (
           <Box key={'ic-' + r.path} width={3} flexShrink={0} justifyContent="center" alignItems="center">
-            <Svg width={17} height={17} alt={r.dir ? 'folder' : 'file'} source={icon(r.dir ? (r.open ? 'folder-open' : 'folder') : 'file', r.dir && !hidden ? folderInk : mutedInk, 17)} />
+            <Svg width={17} height={17} alt={r.dir ? 'folder' : 'file'} source={icon(r.dir ? (r.open ? 'folder-open' : 'folder') : 'file', r.path === hotPath || (r.dir && !r.open && hotPath && isUnder(r.path, [hotPath])) ? ink(hotSlot) : editedNow.has(r.path) || (r.dir && !r.open && isUnder(r.path, editedNow)) ? ink('write') : r.dir && !hidden ? folderInk : mutedInk, 17)} />
           </Box>
         ) : null
         fileKids.push(
@@ -1394,7 +1437,7 @@ export const register: Register = (on, options) => {
               {r.dir ? (
                 <Button key={'rb-' + r.path} plain dimColor={hidden} onPress={toggle}>{r.name}</Button>
               ) : (
-                <Text wrap="truncate-end" {...c(hidden ? 'muted' : 'fg')}>{r.name}</Text>
+                fileName('rn-' + r.path, r.path, r.name, () => <Text wrap="truncate-end" {...c(hidden ? 'muted' : 'fg')}>{r.name}</Text>) as never
               )}
             </Box>
             {marks(r.path, r.dir) as never}
@@ -1408,6 +1451,8 @@ export const register: Register = (on, options) => {
     // The icon is a drawing, so a blank button lies over it; spilling onto its neighbours is harmless, they toggle too.
     // In Flight is read only while open, so a collapsed card does not redraw the pane on every event.
     const deck = open.deck ? await readDeck($) : undefined
+    // Collapsed, the header still counts the sessions on this machine.
+    const others = deck ? '' : sessionsLine(await getSessions($))
     const deckBody = deck
       ? deckKids(deck, {
           els, cols, pal, card, capsText,
@@ -1441,7 +1486,7 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column" alignItems="stretch" width="100%" gap={1}>
         {card('box-task', open.tasks ? [section('bt', 'tasks', cur ? `Task · ${cur.short}` : 'Task'), ...task] : [section('bt', 'tasks', 'Tasks')])}
         {card('box-files', open.files ? [section('bf', 'files', `Files: ${baseOf(root) || '/'}`), ...fileKids] : [section('bf', 'files', 'Files')])}
-        {card('box-deck', deck ? [section('bd', 'deck', deckTitle(deck.main)), ...deckBody] : [section('bd', 'deck', 'In Flight')])}
+        {card('box-deck', deck ? [section('bd', 'deck', deckTitle(deck.main)), ...deckBody] : [section('bd', 'deck', others ? `In Flight · ${others}` : 'In Flight')])}
       </Box>
     )
   })

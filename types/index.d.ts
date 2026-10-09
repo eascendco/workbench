@@ -33,8 +33,8 @@ export type PaneUi = { showPrev: boolean; stage?: string; paneOpen?: boolean; se
 /* The Workbench pane */
 /** One file Claude read or edited this session; `active` while the tool runs. */
 export type Touch = { path: string; kind: 'read' | 'edited'; active: boolean; at: number }
-/** What Claude did last in the turn under way: `busy` from the prompt to the end of the turn; `kind` the last file read or edit, command or search. */
-export type Activity = { busy: boolean; kind?: 'read' | 'edited' | 'run' | 'search'; label?: string; path?: string }
+/** What Claude did last in the turn under way: `busy` from the prompt to the end of the turn; `kind` the last file read or edit, command or search; `since` when the turn began. */
+export type Activity = { busy: boolean; kind?: 'read' | 'edited' | 'run' | 'search'; label?: string; path?: string; since?: number }
 /** One directory entry as the tree shows it. */
 export type Entry = { name: string; dir: boolean; size: number }
 export type Files = {
@@ -99,6 +99,22 @@ export type DeckTurn = { edits: number; errorStreak: number; errors: number; isR
 export type DeckReceipt = { durationMs: number; agents: number; edits: number; errors: number; costDelta: number | null; reason: string }
 export type DeckView = { expanded: string | null; gateOpen: DeckBucket | null }
 export type DeckRoster = { architectTypes: string[] }
+/** Another Claude Code session on this machine, from its `~/.claude/sessions/<pid>.json`. */
+export type DeckSessionStatus = 'working' | 'waiting' | 'done'
+export type DeckSession = {
+  pid: number
+  id: string
+  name: string
+  cwd: string
+  /** desktop, vscode, terminal, background */
+  where: string
+  status: DeckSessionStatus
+  /** What a waiting session waits for: `input needed`, `dialog open`; empty otherwise. */
+  detail: string
+  /** When the status last changed; 0 unknown. */
+  since: number
+  isSelf: boolean
+}
 
 declare module 'claude-code' {
   interface PluginState {
@@ -121,6 +137,7 @@ declare module 'claude-code' {
       deckReceipt: DeckReceipt | null
       deckView: DeckView
       deckRoster: DeckRoster
+      deckSessions: DeckSession[]
     }
   }
 }

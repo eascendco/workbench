@@ -1,16 +1,16 @@
-// The In Flight card's drawing, stacked for the Workbench's one column: main vitals, the
-// architect, the permission gate, agent cards and lanes, other loops, the turn receipt and the
+// The In Flight card's drawing, stacked for the Workbench's one column: the sessions on this
+// machine, main vitals, the architect, the permission gate, agent cards and lanes, other loops, the turn receipt and the
 // session log. Pure: register.tsx reads the state and passes the presses back in.
 //
 // Adapted from claude-flightdeck (https://github.com/scasella/claude-flightdeck, hooks/register.tsx),
 // MIT License, Copyright (c) 2026 Stephen Casella. The full notice is at the top of ./deck.ts.
 import type { ThemeKey } from 'claude-code'
 
-import type { DeckAgent, DeckBucket, DeckCheck, DeckLogLine } from '../types'
+import type { DeckAgent, DeckBucket, DeckCheck, DeckLogLine, DeckSession } from '../types'
 import type { Palette, Slot } from './bench'
 import {
   cardTitle, consultTimeline, fmtDuration, fmtTimer, fmtUsd, gateSummary, gauge, isAdvising, isLoopActive, kTokens,
-  limitLabel, plural, prettyModel, shorten, titleLines,
+  limitLabel, plural, prettyModel, sessionsLine, shorten, titleLines,
 } from './deck'
 import type { DeckData } from './deck'
 
@@ -18,6 +18,8 @@ import type { DeckData } from './deck'
 const TILES = 3
 const EARLIER_ROWS = 6
 const ARCH_LABEL = 'Architect'
+/** Sessions listed before `+n more`. */
+const SESSION_ROWS = 8
 
 type Role = 'main' | 'agent' | 'gate' | 'cleared' | 'arch' | 'amber' | 'warn' | 'dim' | 'faint' | 'text'
 /** Each role's skin slot, and with no skin the Claude Code theme key the original Flightdeck uses. */
@@ -58,7 +60,7 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
   const { els, cols, pal, card, capsText, viewed } = kit
   const { Box, Text, Button } = els
   const hasClient = 'Client' in els
-  const { main: m, usage: u, arch: a, gate: g, cards, loops: lp, log: lines, turn: t, receipt: r, view: v, now } = d
+  const { main: m, usage: u, arch: a, gate: g, cards, loops: lp, log: lines, turn: t, receipt: r, view: v, sessions: ss, now } = d
   const col = (role: Role) => (pal.themed ? pal[ROLE[role][0]] : ROLE[role][1])
   const slot = (role: Role) => ROLE[role][0]
   // The text width inside a card inside the section's card: each takes its border and padding.
@@ -79,6 +81,32 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
     : hasClient ? <els.Client key={key} module="./elapsed.tsx" props={{ since, now, endAt, color }} />
     : <Text key={key} color={color}>{fmtTimer((endAt ?? now) - since)}</Text>
   const out: unknown[] = []
+
+  // ── sessions: every Claude Code session on this machine, waiting first, then working, then done
+  if (ss.length > 0) {
+    const look: Record<DeckSession['status'], [string, Role]> = { waiting: ['◆', 'amber'], working: ['●', 'main'], done: ['✓', 'gate'] }
+    const kids: unknown[] = [head('fd-ss-h', 'Sessions', 'dim', <Text key="fd-ss-n" dimColor>{sessionsLine(ss)}</Text>)]
+    for (const x of ss.slice(0, SESSION_ROWS)) {
+      const [glyph, role] = look[x.status]
+      const folder = x.cwd.split('/').filter(Boolean).pop() ?? ''
+      const where = [folder, x.where, x.isSelf ? 'this session' : ''].filter(Boolean).join(' · ')
+      kids.push(
+        <Box key={'fd-ss-' + x.pid} flexDirection="column" marginTop={1} width="100%">
+          <Box flexDirection="row" columnGap={1} width="100%">
+            <Box width={9} flexShrink={0}><Text color={col(role)} bold={x.status !== 'done'}>{`${glyph} ${x.status}`}</Text></Box>
+            <Box flexGrow={1} flexShrink={1} minWidth={0}><Text bold={x.status !== 'done'} wrap="truncate-end">{x.name}</Text></Box>
+            <Box flexShrink={0}>{clock('fd-ssc-' + x.pid, x.since, null, col('dim'))}</Box>
+          </Box>
+          <Box flexDirection="row" columnGap={1} paddingLeft={10} width="100%">
+            {x.detail ? <Box flexShrink={0}><Text color={col('amber')}>{x.detail}</Text></Box> : null}
+            <Box flexGrow={1} flexShrink={1} minWidth={0}><Text dimColor wrap="truncate-end">{where}</Text></Box>
+          </Box>
+        </Box>,
+      )
+    }
+    if (ss.length > SESSION_ROWS) kids.push(<Text key="fd-ss-more" color={col('faint')}>{`+${ss.length - SESSION_ROWS} more`}</Text>)
+    out.push(card('fd-sessions', kids, 1))
+  }
 
   // ── main: model, effort, context, cost and rate limits
   const effortN = ({ low: 1, medium: 2, high: 3, xhigh: 4, max: 4 } as Record<string, number>)[m.effort] ?? 0

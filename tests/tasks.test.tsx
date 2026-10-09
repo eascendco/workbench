@@ -172,3 +172,30 @@ test('adding from the pane writes the file; /task <words> goes to Claude with th
   await w.clock.advance(400)
   expect(sent[0]).toMatch(/^let's get started\n[\s\S]*plan file: \/Users\/x\/code\/weather-app\/plans\/forecast\.md/)
 })
+
+test('the file Claude is on shimmers; files edited this turn stay lit until the next prompt', async ($, on) => {
+  world(on, { [PLANS + '/forecast.md']: FORECAST, [ROOT + '/src/app.ts']: 'x' })
+  on('prompt.submit', async (_$, e) => ({ text: (e as { text: string }).text }) as never)
+  on('tool.call', { tool: 'Edit' }, async () => ({ result: {}, text: '' }) as never)
+  on('turn.complete', async () => ({ text: '' }) as never)
+  on('command.register', async () => ({ value: undefined }) as never)
+  on('tool.register', async () => ({ value: undefined }) as never)
+  on('session.start', async () => ({ cwd: ROOT }) as never)
+  on('process.run', async () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }) as never)
+  await $.session.start({ source: 'startup', cwd: ROOT } as never)
+  const app = ROOT + '/src/app.ts'
+  const ui = await $.ui.mount({ plugin: 'workbench', surface: 'terminal', component: 'Pane', requestId: 'workbench', props: {} } as never)
+  await ui.press({ key: 'bf-toggle' })
+  await ui.press({ key: 'rb-' + ROOT + '/src' })
+  await $.prompt.submit({ text: 'fix it' } as never)
+  await $.tool.call({ tool: 'Edit', file_path: app, old_string: 'x', new_string: 'y' } as never)
+  expect(await ui.find({ key: `rn-${app}-sh-${app}` })).toBeDefined()
+  await $.turn.complete({ answer: '' } as never)
+  expect(await ui.find({ key: `rn-${app}-sh-${app}` })).toBeUndefined()
+  // Lit in the tree and in Claude touched: bold, in the edit color.
+  const lit = async () => (await ui.findAll({ type: 'Text', text: /^app\.ts$/ })).filter(x => (x.props as { bold?: boolean }).bold).length
+  expect(await lit()).toBe(2)
+  await $.prompt.submit({ text: 'next' } as never)
+  expect(await lit()).toBe(1) // Claude touched always bolds names; the tree goes back to plain
+  await ui.unmount()
+})

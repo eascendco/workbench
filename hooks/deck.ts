@@ -25,6 +25,8 @@ import type {
   DeckMoment,
   DeckReceipt,
   DeckRoster,
+  DeckSession,
+  DeckSessionStatus,
   DeckTally,
   DeckToolNote,
   DeckTurn,
@@ -396,6 +398,92 @@ export const adviceLine = (report: string) => {
 
 export const elapsedOf = (c: DeckAgent, now: number) => (c.endedAt ?? now) - c.spawnedAt
 
+// ---------------------------------------------------------------- sessions on this machine
+
+/** The fields read from a `~/.claude/sessions/<pid>.json`, the registry Claude Code keeps of its running sessions. */
+export type SessionFile = {
+  pid: number
+  sessionId: string
+  name: string
+  cwd: string
+  kind: string
+  entrypoint: string
+  status: string
+  waitingFor: string
+  statusUpdatedAt: number
+  isSpare: boolean
+}
+
+/** A session file's fields, or null when the text is not one. */
+export const parseSessionFile = (text: string): SessionFile | null => {
+  let o: unknown
+  try {
+    o = JSON.parse(text)
+  } catch {
+    return null
+  }
+  if (!isObject(o) || typeof o.pid !== 'number') return null
+  const str = (v: unknown) => (typeof v === 'string' ? v : '')
+  return {
+    pid: o.pid,
+    sessionId: str(o.sessionId),
+    name: str(o.name),
+    cwd: str(o.cwd),
+    kind: str(o.kind),
+    entrypoint: str(o.entrypoint),
+    status: str(o.status),
+    waitingFor: str(o.waitingFor),
+    statusUpdatedAt: typeof o.statusUpdatedAt === 'number' ? o.statusUpdatedAt : 0,
+    isSpare: o.spare === true,
+  }
+}
+
+/** The pids `ps -o pid=,comm=` lists that still run Claude Code; a stale file's pid may belong to another program by now. */
+export const alivePids = (ps: string): Set<number> => {
+  const out = new Set<number>()
+  for (const line of ps.split('\n')) {
+    const m = /^\s*(\d+)\s+(.*)$/.exec(line)
+    if (m?.[1] && /claude/i.test(m[2] ?? '')) out.add(Number(m[1]))
+  }
+  return out
+}
+
+const WHERE: Record<string, string> = { 'claude-desktop': 'desktop', 'claude-vscode': 'vscode', cli: 'terminal' }
+const RANK: Record<DeckSessionStatus, number> = { waiting: 0, working: 1, done: 2 }
+
+/**
+ * The sessions to list: running, not a pre-warmed spare or a daemon. busy and shell are working,
+ * waiting (or idle with something to wait for) is waiting, idle is done. Waiting first, then
+ * working, then done; the latest change first within each.
+ */
+export const sessionsOf = (files: SessionFile[], alive: ReadonlySet<number>, selfId: string): DeckSession[] =>
+  files
+    .filter(f => alive.has(f.pid) && !f.isSpare && !f.kind.startsWith('daemon'))
+    .map(f => {
+      const status: DeckSessionStatus =
+        f.status === 'busy' || f.status === 'shell' ? 'working' : f.status === 'waiting' || f.waitingFor ? 'waiting' : 'done'
+      return {
+        pid: f.pid,
+        id: f.sessionId,
+        name: f.name || f.cwd.split('/').filter(Boolean).pop() || `pid ${f.pid}`,
+        cwd: f.cwd,
+        where: f.kind === 'bg' ? 'background' : WHERE[f.entrypoint] ?? (f.entrypoint.replace(/^claude-/, '') || 'terminal'),
+        status,
+        detail: status === 'waiting' ? f.waitingFor || 'needs you' : '',
+        since: f.statusUpdatedAt,
+        isSelf: f.sessionId !== '' && f.sessionId === selfId,
+      }
+    })
+    .sort((a, b) => RANK[a.status] - RANK[b.status] || b.since - a.since)
+
+/** `1 waiting · 2 working · 3 done`, leaving out the zeros; empty with no sessions. */
+export const sessionsLine = (list: DeckSession[]) =>
+  (['waiting', 'working', 'done'] as const)
+    .map(s => [s, list.filter(x => x.status === s).length] as const)
+    .filter(([, n]) => n > 0)
+    .map(([s, n]) => `${n} ${s}`)
+    .join(' · ')
+
 // ---------------------------------------------------------------- the card
 
 /** Everything the card draws, read once per redraw. */
@@ -410,6 +498,7 @@ export type DeckData = {
   turn: DeckTurn
   receipt: DeckReceipt | null
   view: DeckView
+  sessions: DeckSession[]
   now: number
 }
 
