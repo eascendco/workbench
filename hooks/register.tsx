@@ -9,11 +9,11 @@ import type { Plan, PlanFront } from './plans'
 import { allDone, devEntryOf, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
 import {
   absOf, addTouch, badge, baseOf, extOf, FILE_TOOLS, foldersTo, humanSize, isDirty, join,
-  paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT,
+  inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, STAGE_SLOT, THEME_KEY,
 } from './bench'
-import type { Palette, SkinCustom, SkinPrefs, Slot } from './bench'
+import type { SkinCustom, SkinPrefs, Slot } from './bench'
 import { caps, disc, fileTag, headline, icon, pill, progress, rule, triangle } from './icons'
-import type { IconName } from './icons'
+import type { IconName, Ink } from './icons'
 
 const TOOL = 'work_items'
 const TOOL_FULL = 'mcp__workbench__work_items'
@@ -618,17 +618,18 @@ export const register: Register = (on, options) => {
     const git = await read($, gitAtom)
     const touched = await read($, touchedAtom)
 
-    // Text in a skin color, or the theme's own when no skin is on.
-    const c = (slot: Slot) => (pal.themed || !['fg', 'muted', 'surface'].includes(slot) ? { color: pal[slot as keyof Palette] || undefined } : slot === 'muted' ? { dimColor: true } : {})
+    // Text in a skin color; with no skin, Claude Code's theme color for the slot (it follows light and dark).
+    const c = (slot: Slot) => (pal.themed ? { color: pal[slot] } : THEME_KEY[slot] ? { color: THEME_KEY[slot] } : slot === 'muted' ? { dimColor: true } : {})
     // Desktop draws Lucide icons, caps labels and pills as SVG; the terminal gets text and glyphs.
     const Svg = e.surface === 'desktop' && 'Svg' in els ? els.Svg : undefined
-    const hex = (slot: Slot, fallback: string) => pal[slot] || fallback
-    const mutedHex = hex('muted', '#8c8c8c')
+    // A drawing's color: the skin's, or with no skin a light and dark pair.
+    const ink = (slot: Slot): Ink => inkOf(pal, slot)
+    const mutedInk = ink('muted')
     // Room inside `depth` nested cards, in px (about 8 a column; each card takes its border and padding).
     const room = (depth: number) => Math.max(140, cols * 8 - 24 - depth * 56)
-    const capsText = (key: string, text: string, color = mutedHex, size = 12) => {
-      if (!Svg) return <Text key={key} bold color={color || undefined} dimColor={!color}>{text.toUpperCase()}</Text>
-      const l = caps(text, color, size)
+    const capsText = (key: string, text: string, slot: Slot = 'muted', size = 12) => {
+      if (!Svg) return <Text key={key} bold {...c(slot)}>{text.toUpperCase()}</Text>
+      const l = caps(text, ink(slot), size)
       return <Svg key={key} width={l.w} height={l.h} alt={text} source={l.source} />
     }
     const label = (key: string, text: string, right?: string) => (
@@ -646,16 +647,13 @@ export const register: Register = (on, options) => {
 
     /* ── box 1: task management ── */
 
-    const ico = (key: string, name: IconName, color: string, size = 16) => (Svg ? <Svg key={key} width={size} height={size} alt={name} source={icon(name, color, size)} /> : null)
+    const ico = (key: string, name: IconName, color: Ink, size = 16) => (Svg ? <Svg key={key} width={size} height={size} alt={name} source={icon(name, color, size)} /> : null)
     const divider = (key: string) =>
       Svg ? (
-        <Box key={key} marginY={1} width="100%"><Svg height={9} alt="divider" source={rule(mutedHex)} /></Box>
+        <Box key={key} marginY={1} width="100%"><Svg height={9} alt="divider" source={rule(mutedInk)} /></Box>
       ) : (
         <Text key={key} {...c('muted')} wrap="truncate-end">{'─'.repeat(200)}</Text>
       )
-    const fgHex = hex('fg', '#ededed')
-    const okHex = hex('ok', '#4ade80')
-    const writeHex = hex('write', '#fb923c')
 
     const task: unknown[] = []
     const cur = snap.cur
@@ -671,14 +669,14 @@ export const register: Register = (on, options) => {
       const when = cur.start === cur.end ? shortDate(cur.start) : `${shortDate(cur.start)} → ${shortDate(cur.end)}`
       const stageTag = (key: string, stage: string) => <Text key={key} {...c(STAGE_SLOT[stage] ?? 'muted')}>{stage}</Text>
       const STATUS_ICON = { draft: 'square-dashed', todo: 'square', doing: 'square-dot', done: 'square-check' } as const
-      const statusHex = (s: WorkItem['status']) => (s === 'done' ? okHex : s === 'doing' ? writeHex : mutedHex)
+      const statusInk = (s: WorkItem['status']) => ink(s === 'done' ? 'ok' : s === 'doing' ? 'write' : 'muted')
       // The status square: a Lucide icon with a press over it; a glyph on the terminal.
       const square = (it: WorkItem) => {
         const press = () => setStatus($, cur.key, it.id, nextStatus(it.status))
         if (!Svg) return <Button key={'sq-' + it.id} plain label={GLYPH[it.status]} onPress={press} />
         return (
           <Box key={'sq-' + it.id} width={2} height={1} flexShrink={0} justifyContent="center" alignItems="center">
-            <Svg width={16} height={16} alt={it.status} source={icon(STATUS_ICON[it.status], statusHex(it.status), 16)} />
+            <Svg width={16} height={16} alt={it.status} source={icon(STATUS_ICON[it.status], statusInk(it.status), 16)} />
             <Box position="absolute" top={0} left={0} right={0} bottom={0}>
               <Button key={'sqb-' + it.id} plain label="  " onPress={press} />
             </Box>
@@ -687,30 +685,30 @@ export const register: Register = (on, options) => {
       }
 
       // Current task: the check disc, the title, the bar; then what is in progress
-      const head = Svg ? headline(cur.title, fgHex, room(2) - 44 - 16) : undefined
+      const head = Svg ? headline(cur.title, ink('fg'), room(2) - 44 - 16) : undefined
       const curKids: unknown[] = [
         <Box key="ct-top" flexDirection="row" columnGap={2} alignItems="center">
-          {Svg ? <Svg key="ct-disc" width={44} height={44} alt="Current task" source={disc('check', okHex)} /> : <Text key="ct-g" color={okHex}>✓</Text>}
+          {Svg ? <Svg key="ct-disc" width={44} height={44} alt="Current task" source={disc('check', ink('ok'))} /> : <Text key="ct-g" {...c('ok')}>✓</Text>}
           <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
-            {capsText('ct-cap', 'Current task', okHex)}
+            {capsText('ct-cap', 'Current task', 'ok')}
             {Svg && head ? <Svg key="ct-head" width={head.w} height={head.h} alt={cur.title} source={head.source} /> : <Text bold wrap="wrap" {...c('fg')}>{cur.title}</Text>}
             <Text wrap="truncate-end" {...c('muted')}>{`${cur.short} · ${when}`}</Text>
           </Box>
         </Box>,
         Svg ? (
-          <Box key="ct-bar" marginTop={1} width="100%"><Svg height={8} alt={`${pct}% done`} source={progress(done, doing.length, total, okHex, mutedHex)} /></Box>
+          <Box key="ct-bar" marginTop={1} width="100%"><Svg height={8} alt={`${pct}% done`} source={progress(done, doing.length, total, ink('ok'), mutedInk)} /></Box>
         ) : (
           <Text key="ct-bar" wrap="truncate-end">
-            <Text color={okHex}>{'█'.repeat(Math.round((Math.max(8, cols - 12) * done) / Math.max(1, total)))}</Text>
+            <Text {...c('ok')}>{'█'.repeat(Math.round((Math.max(8, cols - 12) * done) / Math.max(1, total)))}</Text>
             <Text {...c('muted')}>{'░'.repeat(200)}</Text>
           </Text>
         ),
         <Box key="ct-count" flexDirection="row" justifyContent="space-between" width="100%">
           <Text {...c('muted')}>{total ? `${done} of ${total} done` : 'Not broken down yet'}</Text>
-          <Text bold color={okHex}>{`${pct}%`}</Text>
+          <Text bold {...c('ok')}>{`${pct}%`}</Text>
         </Box>,
         divider('ct-hr'),
-        capsText('ip-cap', 'In progress', writeHex),
+        capsText('ip-cap', 'In progress', 'write'),
       ]
       if (!doing.length) curKids.push(<Box key="ip-none" marginTop={1}><Text {...c('muted')}>Nothing in progress</Text></Box>)
       for (const it of doing)
@@ -805,16 +803,16 @@ export const register: Register = (on, options) => {
         ? { icon: 'eye' as const, slot: 'read' as const, verb: 'reading', glyph: '◉' }
         : { icon: 'pencil' as const, slot: 'write' as const, verb: 'editing', glyph: '✎' }
       : { icon: 'coffee' as const, slot: 'muted' as const, verb: '', glyph: '◌' }
-    const stateHex = state.slot === 'muted' ? mutedHex : hex(state.slot, '#c084fc')
+    const stateInk = ink(state.slot)
     const headText = now ? `Claude is ${state.verb} ${baseOf(now.path)}` : 'Claude is idle'
     const textW = room(2) - 44 - 16
-    const head = Svg ? headline(headText, fgHex, textW) : undefined
+    const head = Svg ? headline(headText, ink('fg'), textW) : undefined
     const sub = now ? `in ${relDir(now.path, root)}` : last ? `last ${last.kind === 'read' ? 'read' : 'edited'} ${baseOf(last.path)}` : 'Waiting for the next file'
     const nowKids: unknown[] = [
       <Box key="rn-top" flexDirection="row" columnGap={2} alignItems="center">
-        {Svg ? <Svg key="rn-disc" width={44} height={44} alt={headText} source={disc(state.icon, stateHex)} /> : <Text key="rn-g" color={stateHex}>{state.glyph}</Text>}
+        {Svg ? <Svg key="rn-disc" width={44} height={44} alt={headText} source={disc(state.icon, stateInk)} /> : <Text key="rn-g" {...c(state.slot)}>{state.glyph}</Text>}
         <Box flexDirection="column" flexGrow={1} flexShrink={1} minWidth={0}>
-          {capsText('rn-cap', 'Right now', stateHex)}
+          {capsText('rn-cap', 'Right now', state.slot)}
           {Svg && head ? <Svg key="rn-head" width={head.w} height={head.h} alt={headText} source={head.source} /> : <Text bold wrap="truncate-end" {...c('fg')}>{headText}</Text>}
           <Text wrap="truncate-end" {...c('muted')}>{sub}</Text>
         </Box>
@@ -822,7 +820,7 @@ export const register: Register = (on, options) => {
       divider('rn-hr'),
       <Box key="rn-git" flexDirection="row" justifyContent="space-between" alignItems="center" width="100%">
         <Box flexDirection="row" columnGap={1} alignItems="center">
-          {Svg ? ico('rn-branch', 'git-branch', hex('user', '#60a5fa'), 18) : <Text {...c('user')}>⎇</Text>}
+          {Svg ? ico('rn-branch', 'git-branch', ink('user'), 18) : <Text {...c('user')}>⎇</Text>}
           <Text bold {...c('fg')}>{git.isRepo ? git.branch : 'not a git repo'}</Text>
         </Box>
         {git.isRepo ? <Text {...c(dirtyHere.length ? 'warn' : 'muted')}>{dirtyHere.length ? `${dirtyHere.length} not committed` : 'clean, nothing changed'}</Text> : null}
@@ -880,8 +878,8 @@ export const register: Register = (on, options) => {
     if (!touched.length) touchKids.push(<Box key="tc-none" marginTop={1}><Text {...c('muted')}>Nothing yet this session</Text></Box>)
     for (const t of touched.slice(0, 8)) {
       const slot = t.kind === 'read' ? 'read' : 'write'
-      const tag = fileTag(extOf(t.path), hex('run', '#e9c46a'))
-      const p = pill(badge(t), hex(slot, '#c084fc'))
+      const tag = fileTag(extOf(t.path), ink('run'))
+      const p = pill(badge(t), ink(slot))
       touchKids.push(
         <Box key={'tc-' + t.path} flexDirection="row" columnGap={1} alignItems="center" marginTop={1} paddingLeft={2} width="100%">
           {Svg ? <Svg key={'tct-' + t.path} width={tag.w} height={tag.h} alt={extOf(t.path) || 'file'} source={tag.source} /> : null}
@@ -899,14 +897,14 @@ export const register: Register = (on, options) => {
       const isChanged = isDirty(path, git.dirty)
       return [t ? dot('m-t-' + path, t.kind === 'read' ? 'read' : 'write') : null, isChanged ? dot('m-g-' + path, 'warn') : null]
     }
-    const folderHex = hex('user', '#60a5fa')
+    const folderInk = ink('user')
     if (files.query.trim()) {
       const hits = search(files.all, files.query, files.showHidden)
       fileKids.push(label('f-all-h', 'Matches', files.all.length ? String(hits.length) : 'searching'))
       for (const p of hits)
         fileKids.push(
           <Box key={'hit-' + p} flexDirection="row" columnGap={1} alignItems="center" width="100%">
-            {ico('hi-' + p, 'file', mutedHex, 15)}
+            {ico('hi-' + p, 'file', mutedInk, 15)}
             <Box flexGrow={1} flexShrink={1} minWidth={0}>
               <Button key={'hb-' + p} plain onPress={() => void reveal($, join(root, p))}>{clip(p, cols - 8)}</Button>
             </Box>
@@ -925,7 +923,7 @@ export const register: Register = (on, options) => {
         const chevron = r.dir ? (
           Svg ? (
             <Box key={'cv-' + r.path} width={2} height={1} flexShrink={0} justifyContent="center" alignItems="center">
-              <Svg width={10} height={10} alt={r.open ? 'collapse' : 'expand'} source={triangle(r.open, mutedHex)} />
+              <Svg width={10} height={10} alt={r.open ? 'collapse' : 'expand'} source={triangle(r.open, mutedInk)} />
               <Box position="absolute" top={0} left={0} right={0} bottom={0}>
                 <Button key={'cvb-' + r.path} plain label="  " onPress={toggle} />
               </Box>
@@ -938,7 +936,7 @@ export const register: Register = (on, options) => {
         )
         const glyph = Svg ? (
           <Box key={'ic-' + r.path} width={3} flexShrink={0} justifyContent="center" alignItems="center">
-            <Svg width={17} height={17} alt={r.dir ? 'folder' : 'file'} source={icon(r.dir ? (r.open ? 'folder-open' : 'folder') : 'file', r.dir && !hidden ? folderHex : mutedHex, 17)} />
+            <Svg width={17} height={17} alt={r.dir ? 'folder' : 'file'} source={icon(r.dir ? (r.open ? 'folder-open' : 'folder') : 'file', r.dir && !hidden ? folderInk : mutedInk, 17)} />
           </Box>
         ) : null
         fileKids.push(

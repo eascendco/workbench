@@ -1,4 +1,7 @@
+import type { ThemeKey } from 'claude-code'
+
 import type { Entry, Touch } from '../types'
+import type { Ink } from './icons'
 
 /* ── colors from the active /skin ── */
 
@@ -17,8 +20,16 @@ const SKINS: Record<string, Palette> = {
 }
 const NOIR_LIGHT: Palette = { read: '#111111', write: '#111111', run: '#111111', search: '#111111', user: '#111111', fg: '#151515', muted: '#6b6b6b', surface: '#ffffff', ok: '#151515', err: '#c42b2b', warn: '#6b6b6b' }
 
-/** No skin on: the screenshot's colors, text left to the theme. */
-export const PLAIN: Palette & { themed: false } = { read: '#c084fc', write: '#fb923c', run: '#e9c46a', search: '#c084fc', user: '#c084fc', fg: '', muted: '', surface: '', ok: '#4ade80', err: '#f87171', warn: '#e9c46a', themed: false }
+/** No skin on: drawings carry a light and a dark color (`inkOf`), text takes Claude Code's theme colors (`THEME_KEY`). */
+export const PLAIN: Palette & { themed: false } = { read: '', write: '', run: '', search: '', user: '', fg: '', muted: '', surface: '', ok: '', err: '', warn: '', themed: false }
+const PLAIN_DARK: Palette = { read: '#c084fc', write: '#fb923c', run: '#e9c46a', search: '#c084fc', user: '#60a5fa', fg: '#ececec', muted: '#9a9a96', surface: '#1f1f1e', ok: '#4ade80', err: '#f87171', warn: '#e9c46a' }
+const PLAIN_LIGHT: Palette = { read: '#7c3aed', write: '#c2410c', run: '#a16207', search: '#7c3aed', user: '#2563eb', fg: '#1f1f1f', muted: '#6b6b6b', surface: '#ffffff', ok: '#15803d', err: '#b91c1c', warn: '#a16207' }
+
+/** A drawing's color for `slot`: the skin's, or with no skin a light and dark pair. */
+export const inkOf = (pal: Palette & { themed: boolean }, slot: Slot): Ink => (pal.themed ? pal[slot] : { light: PLAIN_LIGHT[slot], dark: PLAIN_DARK[slot] })
+
+/** With no skin, text in these slots takes Claude Code's own theme colors, which follow light and dark. */
+export const THEME_KEY: Partial<Record<Slot, ThemeKey>> = { read: 'suggestion', search: 'suggestion', write: 'claude', run: 'warning', warn: 'warning', ok: 'success', err: 'error', user: 'permission' }
 
 const deepen = (hex: string, amount: number) =>
   '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - amount)).toString(16).padStart(2, '0')).join('')

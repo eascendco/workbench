@@ -21,40 +21,54 @@ const PATHS = {
 
 export type IconName = keyof typeof PATHS
 
+/** A color, or a pair the drawing picks from by light or dark mode. */
+export type Ink = string | { light: string; dark: string }
+
+/** `[style block, value]` for an ink: a pair becomes a CSS variable that follows prefers-color-scheme. */
+const paint = (c: Ink, name = 'ink'): [string, string] =>
+  typeof c === 'string'
+    ? ['', c]
+    : [`<style>svg{--${name}:${c.light}}@media (prefers-color-scheme: dark){svg{--${name}:${c.dark}}}</style>`, `var(--${name})`]
+
 const FONT = 'font-family="-apple-system, BlinkMacSystemFont, system-ui, sans-serif"'
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 /** One Lucide icon, `size` px square, stroked in `color`. */
-export const icon = (name: IconName, color: string, size = 16) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${PATHS[name]}</svg>`
+export const icon = (name: IconName, color: Ink, size = 16) => {
+  const [css, c] = paint(color)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="stroke:${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${css}${PATHS[name]}</svg>`
+}
 
 /** An icon centred on a tinted disc, as the "Right now" card leads with. */
-export const disc = (name: IconName, color: string, size = 44) => {
+export const disc = (name: IconName, color: Ink, size = 44) => {
+  const [css, c] = paint(color)
   const s = Math.round(size * 0.5)
   const o = (size - s) / 2
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
-    `<circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="${color}" fill-opacity="0.18"/>` +
-    `<g transform="translate(${o} ${o}) scale(${s / 24})" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${PATHS[name]}</g></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${css}` +
+    `<circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" style="fill:${c}" fill-opacity="0.18"/>` +
+    `<g transform="translate(${o} ${o}) scale(${s / 24})" fill="none" style="stroke:${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${PATHS[name]}</g></svg>`
   )
 }
 
 /** A rounded label on a tint of its own color: "Reading", "Edited". */
-export const pill = (text: string, color: string) => {
+export const pill = (text: string, color: Ink) => {
+  const [css, c] = paint(color)
   const w = Math.round(text.length * 7.4 + 22)
   const h = 22
   return {
     w,
     h,
     source:
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-      `<rect width="${w}" height="${h}" rx="${h / 2}" fill="${color}" fill-opacity="0.18"/>` +
-      `<text x="${w / 2}" y="15" text-anchor="middle" font-size="12" font-weight="600" fill="${color}" ${FONT}>${esc(text)}</text></svg>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${css}` +
+      `<rect width="${w}" height="${h}" rx="${h / 2}" style="fill:${c}" fill-opacity="0.18"/>` +
+      `<text x="${w / 2}" y="15" text-anchor="middle" font-size="12" font-weight="600" style="fill:${c}" ${FONT}>${esc(text)}</text></svg>`,
   }
 }
 
 /** A file-type tag: the extension, short, on a square tint. */
-export const fileTag = (ext: string, color: string) => {
+export const fileTag = (ext: string, color: Ink) => {
+  const [css, c] = paint(color)
   const label = (ext || '·').slice(0, 4).toUpperCase()
   const w = Math.max(26, Math.round(label.length * 7 + 12))
   const h = 20
@@ -62,18 +76,21 @@ export const fileTag = (ext: string, color: string) => {
     w,
     h,
     source:
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-      `<rect width="${w}" height="${h}" rx="5" fill="${color}" fill-opacity="0.16"/>` +
-      `<text x="${w / 2}" y="14" text-anchor="middle" font-size="10" font-weight="700" fill="${color}" ${FONT}>${esc(label)}</text></svg>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${css}` +
+      `<rect width="${w}" height="${h}" rx="5" style="fill:${c}" fill-opacity="0.16"/>` +
+      `<text x="${w / 2}" y="14" text-anchor="middle" font-size="10" font-weight="700" style="fill:${c}" ${FONT}>${esc(label)}</text></svg>`,
   }
 }
 
 /** A hairline: drawn without a width it fills its slot, stretched by preserveAspectRatio. */
-export const rule = (color: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="9" viewBox="0 0 2000 9" preserveAspectRatio="none"><line x1="0" y1="4.5" x2="2000" y2="4.5" stroke="${color}" stroke-opacity="0.7" stroke-width="1" vector-effect="non-scaling-stroke"/></svg>`
+export const rule = (color: Ink) => {
+  const [css, c] = paint(color)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="9" viewBox="0 0 2000 9" preserveAspectRatio="none">${css}<line x1="0" y1="4.5" x2="2000" y2="4.5" style="stroke:${c}" stroke-opacity="0.7" stroke-width="1" vector-effect="non-scaling-stroke"/></svg>`
+}
 
 /** A letter-spaced caps label ("RIGHT NOW", "ALL FILES"), its width from its text. */
-export const caps = (text: string, color: string, size = 12) => {
+export const caps = (text: string, color: Ink, size = 12) => {
+  const [css, c] = paint(color)
   const t = text.toUpperCase()
   const w = Math.ceil(t.length * (size * 0.68 + 1.6)) + 2
   const h = Math.round(size * 1.5)
@@ -81,13 +98,14 @@ export const caps = (text: string, color: string, size = 12) => {
     w,
     h,
     source:
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-      `<text x="0" y="${Math.round(size * 1.1)}" font-size="${size}" font-weight="700" letter-spacing="1.6" fill="${color}" ${FONT}>${esc(t)}</text></svg>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${css}` +
+      `<text x="0" y="${Math.round(size * 1.1)}" font-size="${size}" font-weight="700" letter-spacing="1.6" style="fill:${c}" ${FONT}>${esc(t)}</text></svg>`,
   }
 }
 
 /** A headline in one line, cut with an ellipsis to fit `maxW` px. */
-export const headline = (text: string, color: string, maxW: number, size = 17) => {
+export const headline = (text: string, color: Ink, maxW: number, size = 17) => {
+  const [css, c] = paint(color)
   const per = size * 0.56
   const fit = Math.max(4, Math.floor(maxW / per))
   const t = text.length > fit ? text.slice(0, fit - 1) + '…' : text
@@ -97,24 +115,28 @@ export const headline = (text: string, color: string, maxW: number, size = 17) =
     w,
     h,
     source:
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-      `<text x="0" y="${Math.round(size * 1.1)}" font-size="${size}" font-weight="700" fill="${color}" ${FONT}>${esc(t)}</text></svg>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${css}` +
+      `<text x="0" y="${Math.round(size * 1.1)}" font-size="${size}" font-weight="700" style="fill:${c}" ${FONT}>${esc(t)}</text></svg>`,
   }
 }
 
 /** The tree's small filled disclosure triangle. */
-export const triangle = (open: boolean, color: string, size = 10) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 10 10"><path d="${open ? 'M1.5 3h7L5 7.5z' : 'M3 1.5v7L7.5 5z'}" fill="${color}"/></svg>`
+export const triangle = (open: boolean, color: Ink, size = 10) => {
+  const [css, c] = paint(color)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 10 10">${css}<path d="${open ? 'M1.5 3h7L5 7.5z' : 'M3 1.5v7L7.5 5z'}" style="fill:${c}"/></svg>`
+}
 
 /** A progress bar that fills its slot: `done` of `total`, the doing share lighter. */
-export const progress = (done: number, doing: number, total: number, color: string, track: string) => {
+export const progress = (done: number, doing: number, total: number, color: Ink, track: Ink) => {
+  const [cssA, c] = paint(color, 'bar')
+  const [cssB, t] = paint(track, 'track')
   const W = 1000
   const a = total ? (W * done) / total : 0
   const b = total ? (W * doing) / total : 0
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="8" viewBox="0 0 ${W} 8" preserveAspectRatio="none">` +
-    `<rect width="${W}" height="8" fill="${track}" fill-opacity="0.22"/>` +
-    `<rect x="${a}" width="${b}" height="8" fill="${color}" fill-opacity="0.45"/>` +
-    `<rect width="${a}" height="8" fill="${color}"/></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="8" viewBox="0 0 ${W} 8" preserveAspectRatio="none">${cssA}${cssB}` +
+    `<rect width="${W}" height="8" style="fill:${t}" fill-opacity="0.22"/>` +
+    `<rect x="${a}" width="${b}" height="8" style="fill:${c}" fill-opacity="0.45"/>` +
+    `<rect width="${a}" height="8" style="fill:${c}"/></svg>`
   )
 }
