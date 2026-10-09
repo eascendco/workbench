@@ -1018,11 +1018,10 @@ export const register: Register = (on, options) => {
       }
     }
 
-    // A section's header: ▼ open, ▶ collapsed to this one row; the arrow toggles it.
+    // A section's header, one button across its row: ▼ open, ▶ collapsed to this one row.
     const section = (key: string, k: 'tasks' | 'files', title: string) => (
-      <Box key={key + '-h'} flexDirection="row" columnGap={1} alignItems="center">
-        <Button key={key + '-toggle'} plain label={open[k] ? '▼' : '▶'} onPress={() => void toggleSection($, k)} />
-        <Text bold {...c('fg')}>{title}</Text>
+      <Box key={key + '-h'} flexDirection="row" alignItems="center">
+        <Button key={key + '-toggle'} plain onPress={() => void toggleSection($, k)}>{`${open[k] ? '▼' : '▶'} ${title}`}</Button>
       </Box>
     )
 
