@@ -1,6 +1,6 @@
 {
   "name": "workbench",
-  "version": "0.1.8",
+  "version": "0.1.7",
   "description": "Your current task above the prompt and a Workbench side pane: the task and its work items, what Claude is reading and editing, git status, file search and a file tree. Tasks are plain markdown files in plans/.",
   "types": "./types/index.d.ts",
   "author": { "name": "eascend", "url": "https://eascend.co" },

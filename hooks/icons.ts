@@ -34,11 +34,6 @@ const FONT = 'font-family="-apple-system, BlinkMacSystemFont, system-ui, sans-se
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 /** One Lucide icon, `size` px square, stroked in `color`. */
-/** A tile's fill, savvy-progress's agents panel tile colors; it follows the app's light and dark. Drawn larger than the card and clipped by it. */
-export const tile = (w: number, h: number) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">` +
-  `<style>.tile{fill:#f4f3f0}@media (prefers-color-scheme: dark){.tile{fill:#262625}}</style><rect class="tile" width="${w}" height="${h}"/></svg>`
-
 export const icon = (name: IconName, color: Ink, size = 16) => {
   const [css, c] = paint(color)
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="stroke:${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${css}${PATHS[name]}</svg>`
