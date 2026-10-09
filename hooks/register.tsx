@@ -927,7 +927,7 @@ export const register: Register = (on, options) => {
       </Box>,
     ]
     if (!touched.length) touchKids.push(<Box key="tc-none" marginTop={1}><Text {...c('muted')}>Nothing yet this session</Text></Box>)
-    for (const t of touched.slice(0, 8)) {
+    for (const t of touched.slice(0, 5)) { // the last five; the header counts them all
       const slot = t.kind === 'read' ? 'read' : 'write'
       const tag = fileTag(extOf(t.path), ink('run'))
       const p = pill(badge(t), ink(slot))
