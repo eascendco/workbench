@@ -8,6 +8,8 @@ A Claude Code mod that keeps your work in view while Claude works. A band above 
 
 No accounts, no services, no network calls.
 
+Works with [claude-skins](https://github.com/hellosverre/claude-skins): the pane and band take your skin's colors and follow macOS light and dark. See [Works with skins](#works-with-skins).
+
 ![The band above the prompt: the task, the item in progress and a progress bar](media/band.png)
 
 <img src="media/pane.png" alt="The Workbench pane: Tasks with work items and Up next, Files with Right now, Claude touched and the file tree, and In Flight collapsed" width="420">
@@ -133,7 +135,16 @@ In `/config`, under Workbench:
 
 ## Works with skins
 
-If you use the [skins](https://github.com/hellosverre/claude-skins) mod, the pane takes its colors from your active skin, light or dark. Skins pick light or dark from Claude Code's theme setting, which the desktop app doesn't change when macOS switches; the Match macOS setting above keeps them in step. Without skins, the pane uses its own colors.
+Workbench works with [claude-skins](https://github.com/hellosverre/claude-skins) by hellosverre, which restyles the Claude Code transcript. With a skin on, the pane takes its colors from your active skin, light or dark. Without one, the pane uses its own colors.
+
+To add skins:
+
+```
+/plugin marketplace add hellosverre/claude-skins
+/plugin install skins@hellosverre-mods
+```
+
+Skins pick light or dark from Claude Code's theme setting, which the desktop app doesn't change when macOS switches. The Match macOS setting above keeps that setting in step, so the transcript and the pane switch with your Mac, no restart needed.
 
 ## What it reads
 
