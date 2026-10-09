@@ -22,7 +22,7 @@ body{background:#262624;color:${C.fg};font:14px/1.45 -apple-system,BlinkMacSyste
 .svg{display:inline-flex;line-height:0}
 .row{display:flex;align-items:center;gap:8px}.between{justify-content:space-between}.grow{flex:1;min-width:0}
 .col{display:flex;flex-direction:column}
-.tint{background:#262625}
+.tint{background:#373737}
 .card{border:1px solid #4a4a46;border-radius:12px;padding:10px 16px;display:flex;flex-direction:column;gap:2px}
 .mt{margin-top:10px}.mt2{margin-top:14px}
 .muted{color:${C.muted}}.bold{font-weight:600}.trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
