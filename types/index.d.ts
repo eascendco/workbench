@@ -49,7 +49,8 @@ export type Files = {
   all: string[]
 }
 export type Git = { isRepo: boolean; branch: string; top: string; dirty: string[] }
-export type WorkbenchUi = { itemsOpen: boolean; adding?: boolean }
+/** `theme` is Claude Code's theme setting read as light or dark; `auto` when it says neither. */
+export type WorkbenchUi = { itemsOpen: boolean; adding?: boolean; theme?: 'light' | 'dark' | 'auto' }
 
 declare module 'claude-code' {
   interface PluginState {
