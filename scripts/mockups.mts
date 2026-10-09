@@ -66,8 +66,7 @@ const sq = (st: keyof typeof SQ) => ico(SQ[st], sqColor(st), 16)
 const taskCard = `
 <div class="card tint">
   ${img(darkHero(hero({ icon: 'check', accent: C.ok, label: 'Current task', title: 'Seven-day forecast', sub: 'weather-app · Oct 8 → Oct 10', w: IN2, panel: false })))}
-  <div class="mt" style="line-height:0">${img(dark(bandBarSvg(IN2, { done: 1, doing: 1, total: 4, pill: 'build', finished: false, color: STAGE_COLOR.build })))}</div>
-  <div class="row between"><span class="muted">1 of 4 done</span></div>
+  <div class="mt" style="line-height:0">${img(dark(bandBarSvg(IN2, { done: 1, doing: 1, total: 4, pill: 'build', finished: false, color: STAGE_COLOR.build }, '1 of 4 done')))}</div>
   <div style="margin:8px 0;line-height:0">${img(rule(C.muted).replace('width="2000"', `width="${IN2}"`))}</div>
   ${capsL('In progress', C.write)}
   <div class="row mt">${sq('doing')}<span class="grow bold">Forecast screen</span><span style="color:${STAGE_COLOR.build}">build</span><span class="btn">Done</span></div>

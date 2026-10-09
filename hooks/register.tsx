@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Hook, Register } from 'claude-code'
 
-import type { DevEntry, Entry, Files, Git, Group, PaneUi, Snap, Touch, WorkbenchUi, WorkItem } from '../types'
+import type { DevEntry, Entry, Files, Git, Group, PaneUi, Snap, Touch, Activity, WorkbenchUi, WorkItem } from '../types'
 import type { BarIn } from './draw'
 import { ACCENT, bandBarSvg, bandTitleSvg, DOING, DONE, MUTED, STAGE_COLOR } from './draw'
 import { activeItem, byStatus, clip, counts, localDate, newId, nextStatus, parseAdd, STAGES, TITLE_MAX, withStages } from './logic'
@@ -35,6 +35,7 @@ const filesAtom = atom({ plugin: 'workbench', key: 'files' } as const, {
 } as Files)
 const gitAtom = atom({ plugin: 'workbench', key: 'git' } as const, { isRepo: false, branch: '', top: '', dirty: [] } as Git)
 const touchedAtom = atom({ plugin: 'workbench', key: 'touched' } as const, [] as Touch[])
+const activityAtom = atom({ plugin: 'workbench', key: 'activity' } as const, { busy: false } as Activity)
 const benchAtom = atom({ plugin: 'workbench', key: 'bench' } as const, { itemsOpen: true } as WorkbenchUi)
 
 // The skin /skin has on. Skins is optional (not a dependency): its refs are cast because its
@@ -164,7 +165,11 @@ async function startWorkbench($: $) {
 }
 
 /** After each turn: commits and checkouts happen in Bash, so the branch line catches up. */
-const afterTurnWorkbench = ($: $) => void quiet(refreshGit($))
+const afterTurnWorkbench = ($: $) => {
+  void quiet(refreshGit($))
+  // The turn is over: Right now goes back to idle.
+  void quiet(update($, activityAtom, a => ({ ...a, busy: false })))
+}
 
 
 /* ── Plan files: the source of truth, read from disk ── */
@@ -588,13 +593,29 @@ export const register: Register = (on, options) => {
 
   /* ── side pane: the Workbench ── */
 
-  // What Claude reads and edits, for "Right now" and "Claude touched".
+  // A prompt starts a turn: Right now shows Claude working until the turn ends.
+  on('prompt.submit', async ($, e, next) => {
+    const r = await next(e)
+    await quiet(update($, activityAtom, () => ({ busy: true })))
+    return r
+  }).catch(($, e, next) => next(e))
+
+  // What Claude reads and edits, for "Right now" and "Claude touched"; commands and searches for "Right now".
   on('tool.call', async ($, e, next) => {
     const kind = FILE_TOOLS[e.tool]
-    const args = e as unknown as { file_path?: unknown; notebook_path?: unknown }
+    const args = e as unknown as { file_path?: unknown; notebook_path?: unknown; command?: unknown; description?: unknown; pattern?: unknown }
     const raw = args.file_path ?? args.notebook_path
-    if (!kind || typeof raw !== 'string') return next(e)
+    if (!kind || typeof raw !== 'string') {
+      const text = (v: unknown) => (typeof v === 'string' ? v.split('\n')[0]!.trim() : '')
+      const act: Activity =
+        e.tool === 'Bash' ? { busy: true, kind: 'run', label: text(args.description) || text(args.command) }
+        : e.tool === 'Grep' || e.tool === 'Glob' ? { busy: true, kind: 'search', label: text(args.pattern) }
+        : { busy: true }
+      await quiet(update($, activityAtom, a => (act.kind ? act : { ...a, busy: true })))
+      return next(e)
+    }
     const path = absOf(raw, (await quiet($.session.cwd())) ?? '')
+    await quiet(update($, activityAtom, () => ({ busy: true, kind, path })))
     await quiet(update($, touchedAtom, l => addTouch(l, { path, kind, active: true, at: Date.now() })))
     try {
       return await next(e)
@@ -619,6 +640,7 @@ export const register: Register = (on, options) => {
     const files = await read($, filesAtom)
     const git = await read($, gitAtom)
     const touched = await read($, touchedAtom)
+    const activity = await read($, activityAtom)
 
     // Text in a skin color; with no skin, Claude Code's theme color for the slot (it follows light and dark).
     const c = (slot: Slot) => (pal.themed ? { color: pal[slot] } : THEME_KEY[slot] ? { color: THEME_KEY[slot] } : slot === 'muted' ? { dimColor: true } : {})
@@ -702,17 +724,20 @@ export const register: Register = (on, options) => {
         ),
         Svg ? (
           // The band's bar: the current stage's color and its pill, the percent at the end.
-          <Box key="ct-bar" marginTop={1} width="100%"><Svg width={room(2)} height={20} alt={`${barIn(cur).pill}, ${pct}% done`} source={bandBarSvg(room(2), barIn(cur))} /></Box>
+          <Box key="ct-bar" marginTop={1} width="100%"><Svg width={room(2)} height={20} alt={`${barIn(cur).pill}, ${pct}% done`} source={bandBarSvg(room(2), barIn(cur), total ? `${done} of ${total} done` : 'not broken down')} /></Box>
         ) : (
           <Text key="ct-bar" wrap="truncate-end">
             <Text {...c('ok')}>{'█'.repeat(Math.round((Math.max(8, cols - 12) * done) / Math.max(1, total)))}</Text>
             <Text {...c('muted')}>{'░'.repeat(200)}</Text>
           </Text>
         ),
-        <Box key="ct-count" flexDirection="row" justifyContent="space-between" width="100%">
-          <Text {...c('muted')}>{total ? `${done} of ${total} done` : 'Not broken down yet'}</Text>
-          {Svg ? null : <Text bold {...c('ok')}>{`${pct}%`}</Text>}
-        </Box>,
+        // On the desktop the count rides at the end of the bar's line, beside the percent.
+        Svg ? null : (
+          <Box key="ct-count" flexDirection="row" justifyContent="space-between" width="100%">
+            <Text {...c('muted')}>{total ? `${done} of ${total} done` : 'Not broken down yet'}</Text>
+            <Text bold {...c('ok')}>{`${pct}%`}</Text>
+          </Box>
+        ),
         divider('ct-hr'),
         capsText('ip-cap', 'In progress', 'write'),
       ]
@@ -798,20 +823,32 @@ export const register: Register = (on, options) => {
     /* ── box 2: file management ── */
 
     const root = files.root
-    const now = touched.find(t => t.active)
+    // While a turn runs, the last thing Claude did stays up; idle once the turn ends.
+    const act = activity.busy ? activity : undefined
     const last = touched[0]
     const dirtyHere = git.dirty.filter(p => p === root || p.startsWith(root + '/'))
     const fileKids: unknown[] = []
 
     // Right now: what Claude is doing, the branch, the legend
-    const state = now
-      ? now.kind === 'read'
-        ? { icon: 'eye' as const, slot: 'read' as const, verb: 'reading', glyph: '◉' }
-        : { icon: 'pencil' as const, slot: 'write' as const, verb: 'editing', glyph: '✎' }
-      : { icon: 'coffee' as const, slot: 'muted' as const, verb: '', glyph: '◌' }
+    const state =
+      act?.kind === 'read' ? { icon: 'eye' as const, slot: 'read' as const, glyph: '◉' }
+      : act?.kind === 'edited' ? { icon: 'pencil' as const, slot: 'write' as const, glyph: '✎' }
+      : act?.kind === 'run' ? { icon: 'terminal' as const, slot: 'run' as const, glyph: '❯' }
+      : act?.kind === 'search' ? { icon: 'search' as const, slot: 'search' as const, glyph: '⌕' }
+      : act ? { icon: 'loader-circle' as const, slot: 'user' as const, glyph: '…' }
+      : { icon: 'coffee' as const, slot: 'muted' as const, glyph: '◌' }
     const stateInk = ink(state.slot)
-    const headText = now ? `Claude is ${state.verb} ${baseOf(now.path)}` : 'Claude is idle'
-    const sub = now ? `in ${relDir(now.path, root)}` : last ? `last ${last.kind === 'read' ? 'read' : 'edited'} ${baseOf(last.path)}` : 'Waiting for the next file'
+    const headText =
+      act?.path ? `Claude is ${act.kind === 'read' ? 'reading' : 'editing'} ${baseOf(act.path)}`
+      : act?.kind === 'run' ? 'Claude is running a command'
+      : act?.kind === 'search' ? 'Claude is searching'
+      : act ? 'Claude is thinking'
+      : 'Claude is idle'
+    const sub =
+      act?.path ? `in ${relDir(act.path, root)}`
+      : act?.label ? act.label
+      : act ? 'Working on your prompt'
+      : last ? `last ${last.kind === 'read' ? 'read' : 'edited'} ${baseOf(last.path)}` : 'Waiting for the next file'
     const nowKids: unknown[] = [
       Svg ? (
         <Svg key="rn-top" width={room(2)} height={78} alt={`${headText}, ${sub}`} source={hero({ icon: state.icon, accent: stateInk, label: 'Right now', title: headText, sub, w: room(2), panel: false })} />

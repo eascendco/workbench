@@ -33,6 +33,8 @@ export type PaneUi = { showPrev: boolean; stage?: string; paneOpen?: boolean; se
 /* The Workbench pane */
 /** One file Claude read or edited this session; `active` while the tool runs. */
 export type Touch = { path: string; kind: 'read' | 'edited'; active: boolean; at: number }
+/** What Claude did last in the turn under way: `busy` from the prompt to the end of the turn; `kind` the last file read or edit, command or search. */
+export type Activity = { busy: boolean; kind?: 'read' | 'edited' | 'run' | 'search'; label?: string; path?: string }
 /** One directory entry as the tree shows it. */
 export type Entry = { name: string; dir: boolean; size: number }
 export type Files = {
@@ -53,6 +55,6 @@ export type WorkbenchUi = { itemsOpen: boolean; adding?: boolean }
 
 declare module 'claude-code' {
   interface PluginState {
-    workbench: { snap: Snap; ui: PaneUi; files: Files; git: Git; touched: Touch[]; bench: WorkbenchUi }
+    workbench: { snap: Snap; ui: PaneUi; files: Files; git: Git; touched: Touch[]; activity: Activity; bench: WorkbenchUi }
   }
 }
