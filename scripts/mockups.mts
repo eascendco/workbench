@@ -143,11 +143,11 @@ const pane = page(`
       <div class="row between mt2" style="padding:0 2px">${capsL('All files')}${capsL('weather-app')}</div>
       <div class="tree mt">${treeRows}</div>
     </div>
-    <div class="card"><span class="row"><span class="muted">▶</span>${img(icon('gauge', C.write, 16))}<span>In flight</span></span></div>
+    <div class="card"><span class="row"><span class="muted">▶</span>${img(icon('gauge', C.write, 16))}<span>In Flight</span></span></div>
   </div>
 </div>`)
 
-/* ── In flight, expanded, with numbered badges the README explains ── */
+/* ── In Flight, expanded, with numbered badges the README explains ── */
 // Text in the pane takes Claude Code's theme colors (dark); caps labels and icons take the pane's own ink.
 const TH = { claude: '#d97757', sugg: '#b1b9f9', ok: '#4eba65', perm: '#b1b9f9', merged: '#af87ff', warn: '#ffc107', err: '#ff6b80', inact: '#999999', subtle: '#5a5a56', text: '#ececec', dim: '#8a8a85' }
 const sp = (c: string, t: string, x = '') => `<span style="color:${c};${x}">${t}</span>`
@@ -171,7 +171,7 @@ const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${infl
   <div class="pane-head"><span>Workbench</span><span>✕</span></div>
   <div class="pane-body">
     ${collapsedRow('Tasks', 'list-checks', C.ok)}${collapsedRow('Files', 'folder', C.folder)}
-    <div class="card"><span class="row"><span class="muted">▼</span>${img(icon('gauge', C.write, 16))}<span>In flight · Opus 5.5 working</span></span>
+    <div class="card"><span class="row"><span class="muted">▼</span>${img(icon('gauge', C.write, 16))}<span>In Flight · Opus 5.5 working</span></span>
       ${panel(1, `<div class="row between">${capsL('Opus 5.5 · main', C.write)}${sp(TH.claude, '● working')}</div>
         <div>${dm('effort ')}${sp(TH.claude, '▮▮▮▯ ')}${sp(TH.claude, 'high', 'font-weight:600')}${dm('  mode auto  42 req')}</div>
         <div>${dm('ctx ')}<span class="mono">${sp(TH.claude, '▰▰▰▰▰')}${sp(TH.subtle, '▱▱▱▱▱▱▱▱▱▱▱')}</span><span class="bold"> 31%</span>${dm(' 62k/200k')}${sp(TH.warn, '  ⟲1')}</div>

@@ -1,4 +1,4 @@
-// The In flight card's drawing, stacked for the Workbench's one column: main vitals, the
+// The In Flight card's drawing, stacked for the Workbench's one column: main vitals, the
 // architect, the permission gate, agent cards and lanes, other loops, the turn receipt and the
 // session log. Pure: register.tsx reads the state and passes the presses back in.
 //
@@ -51,7 +51,7 @@ export type DeckKit = {
 
 /** The section's title: the main model and whether it works. */
 export function deckTitle(m: DeckData['main']) {
-  return `In flight · ${m.model ? prettyModel(m.model) : 'main'} ${m.isRunning ? 'working' : 'idle'}`
+  return `In Flight · ${m.model ? prettyModel(m.model) : 'main'} ${m.isRunning ? 'working' : 'idle'}`
 }
 
 export function deckKids(d: DeckData, kit: DeckKit): unknown[] {

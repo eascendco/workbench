@@ -1,4 +1,4 @@
-// In flight, the Workbench's third card: Flightdeck ported into the pane. Pure data: defaults, reducers and
+// In Flight, the Workbench's third card: Flightdeck ported into the pane. Pure data: defaults, reducers and
 // formatting; nothing here touches `$`, so every behaviour is testable directly.
 //
 // Adapted from claude-flightdeck (https://github.com/scasella/claude-flightdeck, hooks/core.ts),
