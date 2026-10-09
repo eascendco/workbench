@@ -12,6 +12,14 @@ import {
   inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, THEME_KEY,
 } from './bench'
 import type { SkinCustom, SkinPrefs, Slot } from './bench'
+import type { DeckAgent, DeckArchitect, DeckCheck, DeckLogLine, DeckLoop, DeckReceipt, DeckView } from '../types'
+import {
+  adviceLine, afterCall, applyStep, bucketOf, cardTitle, DEFAULT_ARCHITECT, DEFAULT_GATE, DEFAULT_MAIN, DEFAULT_ROSTER, DEFAULT_TURN,
+  DEFAULT_USAGE, DEFAULT_VIEW, describeInput, EDIT_TOOLS, endConsult, fmtDuration, handbackOf, listOf, momentOf, normalize,
+  normalizeCard, normalizeGate, normalizeLog, noteTool, promptLine, receiptOf, recordCheck, RESET, settleCheck, shorten, startConsult, stepLoop,
+} from './deck'
+import type { DeckData } from './deck'
+import { deckKids, deckTitle } from './deck-view'
 import { caps, fileTag, hero, icon, pill, rule } from './icons'
 import type { IconName, Ink } from './icons'
 
@@ -168,16 +176,51 @@ async function startWorkbench($: $) {
 }
 
 /** After each turn: commits and checkouts happen in Bash, so the branch line catches up. */
-/** Which Workbench sections are open, kept across sessions: Tasks open and Files collapsed until changed. */
+/** Which Workbench sections are open, kept across sessions: Tasks open, Files and Flightdeck collapsed until changed. */
 const SECTIONS = 'sections'
-type Sections = { tasks: boolean; files: boolean }
-const sectionsOf = (v: unknown): Sections => ({ tasks: true, files: false, ...(v && typeof v === 'object' ? (v as Partial<Sections>) : {}) })
+type Sections = { tasks: boolean; files: boolean; deck: boolean }
+const sectionsOf = (v: unknown): Sections => ({ tasks: true, files: false, deck: false, ...(v && typeof v === 'object' ? (v as Partial<Sections>) : {}) })
 async function toggleSection($: $, k: keyof Sections) {
   const ui = await update($, benchAtom, u => {
     const cur = sectionsOf(u.sections)
     return { ...u, sections: { ...cur, [k]: !cur[k] } }
   })
   await quiet($.store.set(SECTIONS, ui.sections))
+}
+
+/* ── the Flightdeck card: its state, read and drawn here; its hooks are further down ── */
+
+const mainAtom = atom({ plugin: 'workbench', key: 'deckMain' } as const, DEFAULT_MAIN)
+const usageAtom = atom({ plugin: 'workbench', key: 'deckUsage' } as const, DEFAULT_USAGE)
+const archAtom = atom({ plugin: 'workbench', key: 'deckArchitect' } as const, DEFAULT_ARCHITECT)
+const gateAtom = atom({ plugin: 'workbench', key: 'deckGate' } as const, DEFAULT_GATE)
+const agentsAtom = atom({ plugin: 'workbench', key: 'deckAgents' } as const, [] as DeckAgent[])
+const loopsAtom = atom({ plugin: 'workbench', key: 'deckLoops' } as const, [] as DeckLoop[])
+const logAtom = atom({ plugin: 'workbench', key: 'deckLog' } as const, [] as DeckLogLine[])
+const turnAtom = atom({ plugin: 'workbench', key: 'deckTurn' } as const, DEFAULT_TURN)
+const receiptAtom = atom({ plugin: 'workbench', key: 'deckReceipt' } as const, null as DeckReceipt | null)
+const viewAtom = atom({ plugin: 'workbench', key: 'deckView' } as const, DEFAULT_VIEW)
+const rosterAtom = atom({ plugin: 'workbench', key: 'deckRoster' } as const, DEFAULT_ROSTER)
+
+async function readDeck($: $): Promise<DeckData> {
+  const [main, usage, arch, gate, cards, loops, log, turn, receipt, view, now] = await Promise.all([
+    getMain($), getUsage($), getArch($), getGate($), getCards($), getLoops($), getLog($), getTurn($), read($, receiptAtom), getView($), $.clock.now(),
+  ])
+  return { main, usage, arch, gate, cards, loops, log, turn, receipt, view, now }
+}
+
+/** The card's Reset: agents, checks, consults, log and the turn clear; cost, rate limits and compactions stay. */
+async function resetDeck($: $) {
+  await update($, mainAtom, RESET.main)
+  await update($, archAtom, () => DEFAULT_ARCHITECT)
+  await update($, gateAtom, () => DEFAULT_GATE)
+  await update($, agentsAtom, () => [])
+  await update($, loopsAtom, () => [])
+  await update($, logAtom, () => [])
+  await update($, turnAtom, () => DEFAULT_TURN)
+  await update($, receiptAtom, () => null)
+  await update($, viewAtom, () => DEFAULT_VIEW)
+  await update($, usageAtom, RESET.usage)
 }
 
 const afterTurnWorkbench = ($: $) => {
@@ -365,6 +408,7 @@ function itemView(it: WorkItem, n: number) {
 /** After each turn: Claude may have edited a plan file, so re-read it. */
 const afterTurn: Hook<'turn.complete'> = async ($, e, next) => {
   const r = await next(e)
+  await quiet(deckTurnDone($, e))
   afterTurnWorkbench($)
   if (plansDir) await refresh($)
   return r
@@ -424,10 +468,324 @@ async function taskCommand($: $, e: { args?: string }) {
   return { text: textView(snap, ui.selected) }
 }
 
+/* ── Flightdeck's hooks: they watch the session and keep the card's state; each passes its event on unchanged ── */
+
+/** Agent types and server tools that count as the on-call architect. */
+const ARCHITECT = /advisor|architect/i
+
+type ServerBlock = { type: string; id?: string; name?: string; tool_use_id?: string }
+
+// Every read goes through these, so a value saved under an older shape still reads after a reload.
+const getMain = async ($: $) => normalize(DEFAULT_MAIN, await read($, mainAtom))
+const getUsage = async ($: $) => normalize(DEFAULT_USAGE, await read($, usageAtom))
+async function getArch($: $): Promise<DeckArchitect> {
+  const a = normalize(DEFAULT_ARCHITECT, await read($, archAtom))
+  return { ...a, consults: listOf(a.consults), ids: listOf(a.ids), seen: listOf(a.seen) }
+}
+const getGate = async ($: $) => normalizeGate(await read($, gateAtom))
+const getCards = async ($: $) => listOf<unknown>(await read($, agentsAtom)).map(normalizeCard)
+const getLoops = async ($: $) => listOf<DeckLoop>(await read($, loopsAtom))
+const getLog = async ($: $) => normalizeLog(await read($, logAtom))
+const getTurn = async ($: $) => normalize(DEFAULT_TURN, await read($, turnAtom))
+const getView = async ($: $): Promise<DeckView> => normalize(DEFAULT_VIEW, await read($, viewAtom))
+const getRoster = async ($: $) => ({ architectTypes: listOf<string>(normalize(DEFAULT_ROSTER, await read($, rosterAtom)).architectTypes) })
+
+async function say($: $, who: string, text: string, kind: DeckLogLine['kind'] = 'info', agentId: string | null = null) {
+  const line: DeckLogLine = { at: await $.clock.now(), who, text, kind, agentId }
+  await update($, logAtom, list => [...normalizeLog(list), line].slice(-60))
+}
+
+async function whoIs($: $, agentId: string | undefined) {
+  if (!agentId) return 'main'
+  const card = (await getCards($)).find(c => c.id === agentId)
+  return card ? shorten(cardTitle(card), 14) : 'agent'
+}
+
+async function consultStarted($: $, id: string, via: string) {
+  const moment = momentOf(await getTurn($))
+  const at = await $.clock.now()
+  await update($, archAtom, a => startConsult(normalize(DEFAULT_ARCHITECT, a), { id, at, moment, via }))
+  if (moment === 'before done') await update($, turnAtom, x => ({ ...normalize(DEFAULT_TURN, x), isReviewing: true }))
+  await say($, 'architect', `${moment} · ${via}`, 'consult')
+}
+
+async function consultEnded($: $, advice: string | null, id?: string) {
+  const at = await $.clock.now()
+  const first = advice?.split('\n').find(l => l.trim()) ?? null
+  const text = first ? shorten(first.replace(/^[#>*\s-]+/, ''), 160) : null
+  await update($, archAtom, a => endConsult(normalize(DEFAULT_ARCHITECT, a), at, text, id))
+  await update($, turnAtom, t => ({ ...normalize(DEFAULT_TURN, t), isReviewing: false }))
+  await say($, 'architect', text ? `advice: ${shorten(text, 60)}` : 'advice returned', 'consult')
+}
+
+async function noteAdvice($: $, advice: string) {
+  await update($, archAtom, x => ({ ...normalize(DEFAULT_ARCHITECT, x), lastAdvice: advice }))
+  await say($, 'architect', `advice: ${shorten(advice, 60)}`, 'consult')
+}
+
+const isArchitectType = async ($: $, type: string) => ARCHITECT.test(type) || (await getRoster($)).architectTypes.includes(type)
+
+/** The session's cost read fresh, not from the last measurement: the receipt subtracts two of these. */
+const costNow = async ($: $) => (await $.session.usage().catch(() => null))?.cost?.usd ?? null
+
+async function noteMode($: $, mode: string | undefined) {
+  if (mode) await update($, mainAtom, m => (normalize(DEFAULT_MAIN, m).mode === mode ? normalize(DEFAULT_MAIN, m) : { ...normalize(DEFAULT_MAIN, m), mode }))
+}
+
+/* ── hooks: each passes its event on unchanged ── */
+
+// tool.check carries no loop id; the tool.call around it does, keyed by the call's id.
+const callLoop = new Map<string, string | null>()
+type CallIn = Parameters<Hook<'tool.call'>>[1]
+type CallOut = Awaited<ReturnType<Hook<'tool.call'>>>
+type TurnIn = Parameters<Hook<'turn.complete'>>[1]
+
+/** After a tool call: settle its permission check, note it on its agent's card, log edits, errors and refusals. */
+async function noteCall($: $, e: CallIn, ran: CallOut) {
+  const didRun = ran.deny === undefined
+  // Settle this call's pending ask, if it had one; skip the write (and the redraw) otherwise.
+  const g0 = await getGate($)
+  if (settleCheck(g0, e.tool_use_id, didRun) !== g0) await update($, gateAtom, g => settleCheck(normalizeGate(g), e.tool_use_id, didRun))
+  // A background agent hands its report back through this tool; an architect's report is its advice.
+  if (String(e.tool) === 'SubagentHandback') {
+    const message = (e as unknown as { message?: unknown }).message
+    const a = e.agentId ? await getArch($) : null
+    if (a && e.agentId && a.ids.includes(e.agentId) && typeof message === 'string') {
+      const advice = adviceLine(message)
+      if (advice && advice !== a.lastAdvice) await noteAdvice($, advice)
+    }
+    return
+  }
+  if (e.tool === 'Agent') return
+  const hasFailed = didRun && ran.isError === true
+  const isEdit = !hasFailed && didRun && EDIT_TOOLS.has(e.tool)
+  const t0 = await getTurn($)
+  if (isEdit || hasFailed || (!e.agentId && t0.errorStreak > 0))
+    await update($, turnAtom, t => afterCall(normalize(DEFAULT_TURN, t), { inSubagent: Boolean(e.agentId), hasFailed, isEdit }))
+  const text = shorten(describeInput(e.tool, e), 64)
+  if (e.agentId) {
+    const id = e.agentId
+    await update($, agentsAtom, list =>
+      listOf<unknown>(list)
+        .map(normalizeCard)
+        .map(c => (c.id === id ? noteTool(c, { tool: e.tool, text, isError: hasFailed || ran.deny !== undefined }) : c)),
+    )
+  }
+  // The log keeps what is worth a glance: refusals, errors and edits; the rest is on the cards.
+  if (ran.deny !== undefined) await say($, await whoIs($, e.agentId), `${text}  denied`, 'error', e.agentId ?? null)
+  else if (hasFailed) await say($, await whoIs($, e.agentId), `${text}  ✗`, 'error', e.agentId ?? null)
+  else if (isEdit) await say($, await whoIs($, e.agentId), text, 'info', e.agentId ?? null)
+}
+
+/** Flightdeck at session start: the first usage reading. A host without usage just starts without it. */
+async function deckStart($: $) {
+  const u = await $.session.usage().catch(() => null)
+  if (u)
+    await update($, usageAtom, x => ({
+      ...normalize(DEFAULT_USAGE, x),
+      pct: u.context.percent ?? null,
+      tokens: u.context.tokens ?? null,
+      window: u.context.window,
+      costUsd: u.cost?.usd ?? null,
+      limits: u.rateLimits.map(r => ({ kind: r.kind, pct: r.percentUsed })),
+    }))
+}
+
+/** Flightdeck around a tool call: it runs the call, then notes it; nothing after the call may throw into it. */
+async function deckToolCall($: $, e: CallIn, next: (e: CallIn) => Promise<CallOut>): Promise<CallOut> {
+  callLoop.set(e.tool_use_id, e.agentId ?? null)
+  const ran = await next(e).finally(() => callLoop.delete(e.tool_use_id))
+  await noteCall($, e, ran).catch(() => undefined)
+  return ran
+}
+
+/** Flightdeck after a turn, the main loop's or an agent's: the receipt, or the agent's card done. */
+async function deckTurnDone($: $, e: TurnIn) {
+  const id = e.agentId
+  const now = await $.clock.now()
+  if (!id) {
+    const [t, cards, cost] = await Promise.all([getTurn($), getCards($), costNow($)])
+    const r = receiptOf(t, { durationMs: e.durationMs, agentsSince: cards.filter(c => c.spawnedAt >= t.startedAt).length, costNow: cost, reason: e.reason })
+    await update($, receiptAtom, () => r)
+    await update($, mainAtom, m => ({ ...normalize(DEFAULT_MAIN, m), isRunning: false }))
+    return
+  }
+  if ((await getArch($)).ids.includes(id)) {
+    await consultEnded($, e.answer, id)
+    return
+  }
+  const cards = await getCards($)
+  if (cards.some(c => c.id === id)) {
+    const status = e.reason === 'answer' ? 'done' : e.reason === 'aborted' ? 'stopped' : 'failed'
+    await update($, agentsAtom, list =>
+      listOf<unknown>(list)
+        .map(normalizeCard)
+        .map(c => (c.id === id ? { ...c, status, endedAt: now, answer: shorten(e.answer, 400) } : c)),
+    )
+    const card = cards.find(c => c.id === id)
+    await say($, await whoIs($, id), status === 'done' ? `done · ${card ? fmtDuration(now - card.spawnedAt) : ''}` : status, status === 'done' ? 'done' : 'error', id)
+  } else {
+    await update($, loopsAtom, l => listOf<DeckLoop>(l).map(x => (x.id === id ? { ...x, isDone: true, lastAt: now } : x)))
+  }
+}
+
 export const register: Register = (on, options) => {
   settings.plansDir = plansDirName(options.plans_dir)
   settings.openPane = options.open_pane !== 'off'
   settings.band = options.band !== 'off'
+
+  // Flightdeck: the events only it watches. session.start, tool.call and turn.complete go through the Workbench's own hooks.
+  on('session.end', async ($, e, next) => {
+    if (e.reason === 'clear') await resetDeck($)
+    return next(e)
+  })
+
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    await noteMode($, e.permission_mode)
+    return next(e)
+  })
+
+  on('agent.offer', async ($, e, next) => {
+    const offered = await next(e)
+    if (ARCHITECT.test(e.agent))
+      await update($, rosterAtom, r => {
+        const x = { architectTypes: listOf<string>(normalize(DEFAULT_ROSTER, r).architectTypes) }
+        return x.architectTypes.includes(e.agent) ? x : { architectTypes: [...x.architectTypes, e.agent].slice(-20) }
+      })
+    return offered
+  })
+
+  on('turn.start', async ($, e, next) => {
+    const [now, cost] = await Promise.all([$.clock.now(), costNow($)])
+    await update($, turnAtom, () => ({ ...DEFAULT_TURN, startedAt: now, costAtStart: cost }))
+    await update($, mainAtom, m => ({ ...normalize(DEFAULT_MAIN, m), isRunning: true }))
+    // A background architect's report reaches the main loop as the text opening this turn. The
+    // SubagentHandback tool call (in tool.call) normally carries it first; this is the fallback.
+    const back = e.text ? handbackOf(e.text) : null
+    const a = back ? await getArch($) : null
+    if (back && a && a.ids.includes(back.from)) {
+      const advice = adviceLine(back.body)
+      if (advice && advice !== a.lastAdvice) await noteAdvice($, advice)
+    } else if (e.text) {
+      const p = promptLine(e.text)
+      await say($, p.who, p.text)
+    }
+    return next(e)
+  })
+
+  on('turn.step', async function* ($, e, next) {
+    // The main loop's model is known when its request starts; a long first request shouldn't read "-".
+    if (!e.agentId) {
+      await update($, mainAtom, m => {
+        const x = normalize(DEFAULT_MAIN, m)
+        return { ...x, model: e.model, effort: String(e.effort ?? x.effort), steps: x.steps + 1 }
+      })
+      return yield* next(e)
+    }
+    const result = yield* next(e)
+    const id = e.agentId
+    const [cards, a] = await Promise.all([getCards($), getArch($)])
+    if (cards.some(c => c.id === id)) {
+      const step = { model: e.model, usage: result.usage, stopReason: result.stopReason }
+      await update($, agentsAtom, list => listOf<unknown>(list).map(normalizeCard).map(c => (c.id === id ? applyStep(c, step) : c)))
+      if (result.stopReason === 'max_tokens') await say($, await whoIs($, id), 'hit max_tokens', 'error', id)
+    } else if (!a.ids.includes(id)) {
+      const now = await $.clock.now()
+      await update($, loopsAtom, l => stepLoop(listOf<DeckLoop>(l), id, now))
+    }
+    return result
+  })
+
+  on('session.measure', async ($, e, next) => {
+    await update($, usageAtom, x => ({
+      ...normalize(DEFAULT_USAGE, x),
+      pct: e.context.percent ?? null,
+      tokens: e.context.tokens ?? null,
+      window: e.context.window,
+      costUsd: e.cost?.usd ?? null,
+      limits: e.rateLimits.map(r => ({ kind: r.kind, pct: r.percentUsed })),
+    }))
+    return next(e)
+  })
+
+  on('session.compact', async ($, e, next) => {
+    const done = await next(e)
+    if (!e.agentId && e.trigger !== 'precompute') {
+      const now = await $.clock.now()
+      await update($, usageAtom, x => {
+        const u = normalize(DEFAULT_USAGE, x)
+        return { ...u, compactions: u.compactions + 1, lastCompactAt: now }
+      })
+      await say($, 'main', `context compacted (${e.trigger})`)
+    }
+    return done
+  })
+
+  on('tool.check', async ($, e, next) => {
+    const verdict = await next(e)
+    if (e.tool_use_id) {
+      const check: DeckCheck = {
+        id: e.tool_use_id,
+        tool: e.tool,
+        bucket: bucketOf(e.tool),
+        verdict: verdict.decision === 'allow' ? 'rule' : verdict.decision,
+        inSubagent: Boolean(callLoop.get(e.tool_use_id)),
+        detail: shorten(describeInput(e.tool, e.input), 90),
+        at: await $.clock.now(),
+      }
+      await update($, gateAtom, g => recordCheck(normalizeGate(g), check))
+      if (verdict.decision === 'deny') await say($, 'gate', `denied by rule · ${check.detail}`, 'error')
+    }
+    return verdict
+  })
+
+  // A server-side review tool never reaches tool.call: it shows only in the assistant's rows.
+  on('session.append', async ($, e, next) => {
+    if (!e.agentId && e.message.type === 'assistant') {
+      const a = await getArch($)
+      // Consults this row opened: their result may be in the same row, after the stale read above.
+      const opened = new Set<string>()
+      for (const block of e.message.content as unknown as readonly ServerBlock[]) {
+        if (block.type === 'server_tool_use' && block.name && block.id && ARCHITECT.test(block.name)) {
+          if (a.seen.includes(block.id)) continue
+          const id = block.id
+          await update($, archAtom, x => {
+            const y = normalize(DEFAULT_ARCHITECT, x)
+            return { ...y, seen: [...listOf<string>(y.seen), id].slice(-60) }
+          })
+          opened.add(id)
+          await consultStarted($, id, `${block.name} tool`)
+        } else if (block.type.endsWith('_tool_result') && block.tool_use_id) {
+          const id = block.tool_use_id
+          const isOpen = opened.has(id) || (await getArch($)).consults.some(c => c.id === id && c.endAt === null)
+          if (isOpen) await consultEnded($, null, id)
+        }
+      }
+    }
+    return next(e)
+  })
+
+  on('agent.spawn', async ($, e, next) => {
+    const started = await next(e)
+    if (!e.parentAgentId) await noteMode($, e.permissionMode)
+    if (started.deny !== undefined || !started.agentId) return started
+    const id = started.agentId
+    if (await isArchitectType($, e.subagentType)) {
+      await update($, archAtom, a => {
+        const x = normalize(DEFAULT_ARCHITECT, a)
+        return { ...x, ids: [...listOf<string>(x.ids), id].slice(-40) }
+      })
+      await update($, loopsAtom, l => listOf<DeckLoop>(l).filter(x => x.id !== id))
+      await consultStarted($, id, e.subagentType.split(':').pop() ?? 'agent')
+      return started
+    }
+    const card: DeckAgent = { ...normalizeCard({}), id, type: e.name ?? e.subagentType, model: started.model, description: e.description, spawnedAt: await $.clock.now() }
+    await update($, agentsAtom, list => [...listOf<unknown>(list).map(normalizeCard), card].slice(-24))
+    await update($, loopsAtom, l => listOf<DeckLoop>(l).filter(x => x.id !== id))
+    await say($, shorten(cardTitle(card), 12), `spawned · ${card.type}`, 'info', id)
+    return started
+  })
+
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
@@ -476,6 +834,7 @@ export const register: Register = (on, options) => {
     })
     const r = await next(e)
     void $.ui.status(undefined)
+    void quiet(deckStart($))
     void startWorkbench($)
     void refresh($)
     return r
@@ -616,6 +975,7 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => next(e))
 
   // What Claude reads and edits, for "Right now" and "Claude touched"; commands and searches for "Right now".
+  // Every call also runs through Flightdeck, which settles its permission check and logs edits and errors.
   on('tool.call', async ($, e, next) => {
     const kind = FILE_TOOLS[e.tool]
     const args = e as unknown as { file_path?: unknown; notebook_path?: unknown; command?: unknown; description?: unknown; pattern?: unknown }
@@ -627,13 +987,13 @@ export const register: Register = (on, options) => {
         : (e.tool as string) === 'Grep' || (e.tool as string) === 'Glob' ? { busy: true, kind: 'search', label: text(args.pattern) } // where the build has them
         : { busy: true }
       await quiet(update($, activityAtom, a => (act.kind ? act : { ...a, busy: true })))
-      return next(e)
+      return deckToolCall($, e, next)
     }
     const path = absOf(raw, (await quiet($.session.cwd())) ?? '')
     await quiet(update($, activityAtom, () => ({ busy: true, kind, path })))
     await quiet(update($, touchedAtom, l => addTouch(l, { path, kind, active: true, at: Date.now() })))
     try {
-      return await next(e)
+      return await deckToolCall($, e, next)
     } finally {
       await quiet(update($, touchedAtom, l => addTouch(l, { path, kind, active: false, at: Date.now() })))
       if (kind === 'edited') {
@@ -1020,14 +1380,27 @@ export const register: Register = (on, options) => {
 
     // A section's header: ▼ open, ▶ collapsed to this one row; the arrow, the icon and the title all toggle it.
     // The icon is a drawing, so a blank button lies over it; spilling onto its neighbours is harmless, they toggle too.
-    const section = (key: string, k: 'tasks' | 'files', title: string) => {
+    // Flightdeck is read only while open, so a collapsed card does not redraw the pane on every event.
+    const deck = open.deck ? await readDeck($) : undefined
+    const deckBody = deck
+      ? deckKids(deck, {
+          els, cols, pal, card, capsText,
+          viewed: e.props?.view?.agentId ?? null,
+          onGate: b => void update($, viewAtom, x => ({ ...normalize(DEFAULT_VIEW, x), gateOpen: normalize(DEFAULT_VIEW, x).gateOpen === b ? null : b })),
+          onExpand: id => void update($, viewAtom, x => ({ ...normalize(DEFAULT_VIEW, x), expanded: normalize(DEFAULT_VIEW, x).expanded === id ? null : id })),
+          onReset: () => void resetDeck($),
+        })
+      : []
+
+    const SECTION_ICON = { tasks: ['list-checks', 'ok'], files: ['folder', 'user'], deck: ['gauge', 'write'] } as const
+    const section = (key: string, k: keyof Sections, title: string) => {
       const toggle = () => void toggleSection($, k)
       return (
         <Box key={key + '-h'} flexDirection="row" alignItems="center" columnGap={1}>
           <Button key={key + '-toggle'} plain label={open[k] ? '▼' : '▶'} onPress={toggle} />
           {Svg ? (
             <Box key={key + '-icon'} width={2} height={1} flexShrink={0} justifyContent="center" alignItems="center">
-              <Svg width={16} height={16} alt={k} source={icon(k === 'tasks' ? 'list-checks' : 'folder', k === 'tasks' ? ink('ok') : ink('user'), 16)} />
+              <Svg width={16} height={16} alt={k} source={icon(SECTION_ICON[k][0], ink(SECTION_ICON[k][1]), 16)} />
               <Box position="absolute" top={0} left={0} right={0} bottom={0}>
                 <Button key={key + '-iconb'} plain label="  " onPress={toggle} />
               </Box>
@@ -1042,6 +1415,7 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column" alignItems="stretch" width="100%" gap={1}>
         {card('box-task', open.tasks ? [section('bt', 'tasks', cur ? `Task · ${cur.short}` : 'Task'), ...task] : [section('bt', 'tasks', 'Tasks')])}
         {card('box-files', open.files ? [section('bf', 'files', `Files: ${baseOf(root) || '/'}`), ...fileKids] : [section('bf', 'files', 'Files')])}
+        {card('box-deck', deck ? [section('bd', 'deck', deckTitle(deck.main)), ...deckBody] : [section('bd', 'deck', 'Flightdeck')])}
       </Box>
     )
   })

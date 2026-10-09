@@ -51,11 +51,76 @@ export type Files = {
   all: string[]
 }
 export type Git = { isRepo: boolean; branch: string; top: string; dirty: string[] }
-/** `sections`: which of the pane's two cards are open (kept across sessions in the store). */
-export type WorkbenchUi = { itemsOpen: boolean; adding?: boolean; sections?: { tasks: boolean; files: boolean } }
+/** `sections`: which of the pane's three cards are open (kept across sessions in the store). */
+export type WorkbenchUi = { itemsOpen: boolean; adding?: boolean; sections?: { tasks: boolean; files: boolean; deck: boolean } }
+
+/* The Flightdeck card (adapted from claude-flightdeck, MIT, Stephen Casella) */
+export type DeckMoment = 'before a plan' | 'error repeats' | 'before done'
+export type DeckBucket = 'file' | 'shell' | 'other'
+/** rule: settings allowed it. ask: put to the decider, outcome pending. cleared: asked, then ran. deny: refused. */
+export type DeckVerdict = 'rule' | 'ask' | 'cleared' | 'deny'
+export type DeckMain = { model: string; effort: string; mode: string; steps: number; isRunning: boolean }
+export type DeckUsage = {
+  pct: number | null
+  tokens: number | null
+  window: number
+  costUsd: number | null
+  limits: { kind: string; pct: number }[]
+  compactions: number
+  lastCompactAt: number | null
+}
+export type DeckConsult = { id: string; at: number; endAt: number | null; moment: DeckMoment; via: string }
+export type DeckArchitect = { consults: DeckConsult[]; ids: string[]; seen: string[]; lastAdvice: string }
+export type DeckCheck = { id: string; tool: string; bucket: DeckBucket; verdict: DeckVerdict; inSubagent: boolean; detail: string; at: number }
+export type DeckTally = { rule: number; ask: number; cleared: number; deny: number }
+export type DeckGate = { recent: DeckCheck[]; totals: Record<DeckBucket, DeckTally> }
+export type DeckToolNote = { tool: string; text: string; isError: boolean }
+export type DeckAgent = {
+  id: string
+  type: string
+  model: string
+  description: string
+  status: string
+  spawnedAt: number
+  endedAt: number | null
+  /** The agent's context now: input + cache read + cache write of its latest step. */
+  ctx: number
+  /** Output tokens summed over its steps. */
+  out: number
+  steps: number
+  lastStop: string | null
+  tools: DeckToolNote[]
+  answer: string
+}
+/** A model loop whose id matches no card: a workflow agent, a compaction or a memory fork. */
+export type DeckLoop = { id: string; steps: number; firstAt: number; lastAt: number; isDone: boolean }
+export type DeckLogLine = { at: number; who: string; text: string; agentId: string | null; kind: 'info' | 'error' | 'consult' | 'done' }
+export type DeckTurn = { edits: number; errorStreak: number; errors: number; isReviewing: boolean; startedAt: number; costAtStart: number | null }
+export type DeckReceipt = { durationMs: number; agents: number; edits: number; errors: number; costDelta: number | null; reason: string }
+export type DeckView = { expanded: string | null; gateOpen: DeckBucket | null }
+export type DeckRoster = { architectTypes: string[] }
 
 declare module 'claude-code' {
   interface PluginState {
-    workbench: { snap: Snap; ui: PaneUi; files: Files; git: Git; touched: Touch[]; activity: Activity; bench: WorkbenchUi }
+    workbench: {
+      snap: Snap
+      ui: PaneUi
+      files: Files
+      git: Git
+      touched: Touch[]
+      activity: Activity
+      bench: WorkbenchUi
+      deckMain: DeckMain
+      deckUsage: DeckUsage
+      deckArchitect: DeckArchitect
+      deckGate: DeckGate
+      deckAgents: DeckAgent[]
+      deckLoops: DeckLoop[]
+      deckLog: DeckLogLine[]
+      deckTurn: DeckTurn
+      deckReceipt: DeckReceipt | null
+      deckView: DeckView
+      deckRoster: DeckRoster
+    }
   }
 }

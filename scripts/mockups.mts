@@ -143,6 +143,7 @@ const pane = page(`
       <div class="row between mt2" style="padding:0 2px">${capsL('All files')}${capsL('weather-app')}</div>
       <div class="tree mt">${treeRows}</div>
     </div>
+    <div class="card"><span class="row"><span class="muted">▶</span>${img(icon('gauge', C.write, 16))}<span>Flightdeck</span></span></div>
   </div>
 </div>`)
 

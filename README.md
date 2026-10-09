@@ -6,7 +6,7 @@ Tasks are plain markdown files in a `plans/` folder in your project. You edit th
 
 ![The band above the prompt: the task, the item in progress and a progress bar](media/band.png)
 
-<img src="media/pane.png" alt="The Workbench pane: the task box with work items and Up next, and the files box with Right now, Claude touched and the file tree" width="420">
+<img src="media/pane.png" alt="The Workbench pane: the task box with work items and Up next, the files box with Right now, Claude touched and the file tree, and Flightdeck collapsed" width="420">
 
 <sub>Mockups drawn with the mod's own drawing code and sample data.</sub>
 
@@ -80,6 +80,10 @@ Claude gets a `work_items` tool to create tasks, add items and update their stat
 
 **Files box.** What Claude is reading or editing right now, your branch and how many files aren't committed. Find a file, with buttons to refresh, collapse all, show sizes, go up a folder, go back to the project and show or hide hidden files. Every file Claude touched this session. The file tree, with a dot on files Claude read or edited and on files not yet committed.
 
+**Flightdeck.** A live agent dashboard, ported from [claude-flightdeck](https://github.com/scasella/claude-flightdeck) by Stephen Casella (MIT) and stacked for one column. The main model's effort, context, cost and rate limits. Consults with an advisor or architect agent. Every permission check, with totals and a drill-down per tool family (credentials masked). Subagents as cards, or lanes on one time axis when there are several; press one to see its last tool calls. The current or last turn, and a session log. It only watches: it never blocks or changes a tool call.
+
+Each box collapses to one row. Tasks starts open, Files and Flightdeck closed, and the pane remembers what you left.
+
 The arrow at the end of the band opens and closes the pane. In the desktop app the pane draws icons; in a terminal it uses plain text.
 
 ## Settings
@@ -96,7 +100,7 @@ If you use the [skins](https://github.com/hellosverre/claude-skins) mod, the pan
 
 ## What it reads
 
-Your plan files, folder listings for the tree, and `git status` for the branch and changes. It reads no file contents beyond the plan files, makes no network calls, and stores nothing outside your project. Run `claude plugin validate` on this folder to see every call it makes.
+Your plan files, folder listings for the tree, and `git status` for the branch and changes. Flightdeck reads the session's own events (tool calls and their permission verdicts, subagent steps, context and cost) and keeps short summaries for the session only. It reads no file contents beyond the plan files, makes no network calls, and stores nothing outside your project. Run `claude plugin validate` on this folder to see every call it makes.
 
 ## Turn it off
 
@@ -108,4 +112,4 @@ claude plugin disable workbench@eascend
 
 ## License
 
-MIT. Made by [eascend](https://eascend.co).
+MIT. Made by [eascend](https://eascend.co). The Flightdeck box is adapted from [claude-flightdeck](https://github.com/scasella/claude-flightdeck), MIT, Copyright (c) 2026 Stephen Casella; its notice is in `hooks/deck.ts`.
