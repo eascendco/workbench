@@ -54,3 +54,12 @@ export const byStatus = (items: WorkItem[]) => {
 export function localDate(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+
+// macOS writes AppleInterfaceStyle = Dark in dark mode and removes the key in light mode.
+// A themed variant keeps its suffix: dark-daltonized becomes light-daltonized.
+export function themeFor(current: unknown, stdout: string): string {
+  const want = stdout.includes('Dark') ? 'dark' : 'light'
+  const variant = typeof current === 'string' ? /^(?:light|dark)(-.+)$/.exec(current)?.[1] : undefined
+
+  return want + (variant ?? '')
+}

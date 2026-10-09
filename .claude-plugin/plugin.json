@@ -1,6 +1,6 @@
 {
   "name": "workbench",
-  "version": "0.1.26",
+  "version": "0.1.27",
   "description": "Your current task above the prompt and a Workbench side pane: the task and its work items, what Claude is reading and editing, git status, file search and a file tree. Tasks are plain markdown files in plans/.",
   "types": "./types/index.d.ts",
   "author": { "name": "eascend", "url": "https://eascend.co" },
@@ -26,6 +26,13 @@
       "type": "string",
       "title": "Band above the prompt",
       "description": "on shows the current task and its progress above the prompt; off hides it.",
+      "default": "on",
+      "options": ["on", "off"]
+    },
+    "follow_macos": {
+      "type": "string",
+      "title": "Match macOS light and dark",
+      "description": "on keeps Claude Code's theme on light or dark to match macOS appearance, so skins and the pane redraw for the right background; off leaves the theme alone.",
       "default": "on",
       "options": ["on", "off"]
     }

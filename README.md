@@ -129,10 +129,11 @@ In `/config`, under Workbench:
 - **Plans folder:** the folder name for plan files. Default `plans`.
 - **Open the pane at start:** `on` or `off`.
 - **Band above the prompt:** `on` or `off`.
+- **Match macOS light and dark:** `on` keeps Claude Code's theme on light or dark to match macOS, checked every 5 seconds (a daltonized or ANSI variant keeps its kind). `off` leaves the theme alone. Does nothing off macOS.
 
 ## Works with skins
 
-If you use the [skins](https://github.com/hellosverre/claude-skins) mod, the pane takes its colors from your active skin, light or dark. Without it, the pane uses its own colors.
+If you use the [skins](https://github.com/hellosverre/claude-skins) mod, the pane takes its colors from your active skin, light or dark. Skins pick light or dark from Claude Code's theme setting, which the desktop app doesn't change when macOS switches; the Match macOS setting above keeps them in step. Without skins, the pane uses its own colors.
 
 ## What it reads
 

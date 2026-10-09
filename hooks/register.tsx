@@ -4,7 +4,7 @@ import type { EngineInterface, Hook, Register } from 'claude-code'
 import type { DevEntry, Entry, Files, Git, Group, PaneUi, Snap, Touch, Activity, WorkbenchUi, WorkItem } from '../types'
 import type { BarIn } from './draw'
 import { ACCENT, bandBarSvg, bandTitleSvg, DOING, DONE, MUTED, paneBarSvg, STAGE_COLOR } from './draw'
-import { activeItem, byStatus, clip, counts, localDate, newId, nextStatus, parseAdd, STAGES, TITLE_MAX, withStages } from './logic'
+import { activeItem, byStatus, themeFor, clip, counts, localDate, newId, nextStatus, parseAdd, STAGES, TITLE_MAX, withStages } from './logic'
 import type { Plan, PlanFront } from './plans'
 import { allDone, devEntryOf, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
 import {
@@ -239,7 +239,7 @@ let plansDir: string | undefined
 let plans: Plan[] = []
 
 /** The settings from /config (the manifest's userConfig), read when the module loads. */
-const settings = { plansDir: 'plans', openPane: true, band: true }
+const settings = { plansDir: 'plans', openPane: true, band: true, followMacos: true }
 
 /** The nearest plans folder at or above the session's folder, stopping at the home folder. */
 async function findPlansDir($: $) {
@@ -631,10 +631,29 @@ async function deckTurnDone($: $, e: TurnIn) {
   }
 }
 
+// The desktop app follows macOS appearance, but mods only see Claude Code's `theme` setting.
+// Keeping it on light or dark to match lets skins and the pane redraw for the right background.
+async function syncAppearance($: EngineInterface): Promise<void> {
+  const { stdout } = await $.process.run(['defaults', 'read', '-g', 'AppleInterfaceStyle'], { timeoutMs: 5000 })
+  const current = (await $.config.list()).find(row => row.key === 'theme')?.value
+  const want = themeFor(current, stdout)
+
+  if (current !== want) {
+    await $.config.set({ key: 'theme', value: want })
+  }
+}
+
+// The first sync fails off macOS (no `defaults`), and then nothing keeps checking.
+async function followAppearance($: EngineInterface): Promise<void> {
+  await syncAppearance($)
+  $.clock.every(5000, () => quiet(syncAppearance($)))
+}
+
 export const register: Register = (on, options) => {
   settings.plansDir = plansDirName(options.plans_dir)
   settings.openPane = options.open_pane !== 'off'
   settings.band = options.band !== 'off'
+  settings.followMacos = options.follow_macos !== 'off'
 
   // In Flight: the events only it watches. session.start, tool.call and turn.complete go through the Workbench's own hooks.
   on('session.end', async ($, e, next) => {
@@ -838,6 +857,7 @@ export const register: Register = (on, options) => {
     void $.ui.status(undefined)
     void quiet(deckStart($))
     void startWorkbench($)
+    if (settings.followMacos) void quiet(followAppearance($))
     void refresh($)
     return r
   })
