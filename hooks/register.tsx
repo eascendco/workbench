@@ -640,6 +640,10 @@ async function syncAppearance($: EngineInterface): Promise<void> {
 
   if (current !== want) {
     await $.config.set({ key: 'theme', value: want })
+    // Skins re-reads the theme inside that set and still sees the old one; setting it again
+    // a moment later makes it read the new one.
+    await $.clock.sleep(1000)
+    await $.config.set({ key: 'theme', value: want })
   }
 }
 
