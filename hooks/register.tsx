@@ -1018,13 +1018,21 @@ export const register: Register = (on, options) => {
       }
     }
 
-    // A section's header: ▼ open, ▶ collapsed to this one row; the arrow and the title toggle it, an icon between them.
+    // A section's header: ▼ open, ▶ collapsed to this one row; the arrow, the icon and the title all toggle it.
+    // The icon is a drawing, so a blank button lies over it; spilling onto its neighbours is harmless, they toggle too.
     const section = (key: string, k: 'tasks' | 'files', title: string) => {
       const toggle = () => void toggleSection($, k)
       return (
         <Box key={key + '-h'} flexDirection="row" alignItems="center" columnGap={1}>
           <Button key={key + '-toggle'} plain label={open[k] ? '▼' : '▶'} onPress={toggle} />
-          {Svg ? <Svg key={key + '-icon'} width={16} height={16} alt={k} source={icon(k === 'tasks' ? 'list-checks' : 'folder', k === 'tasks' ? ink('ok') : ink('user'), 16)} /> : null}
+          {Svg ? (
+            <Box key={key + '-icon'} width={2} height={1} flexShrink={0} justifyContent="center" alignItems="center">
+              <Svg width={16} height={16} alt={k} source={icon(k === 'tasks' ? 'list-checks' : 'folder', k === 'tasks' ? ink('ok') : ink('user'), 16)} />
+              <Box position="absolute" top={0} left={0} right={0} bottom={0}>
+                <Button key={key + '-iconb'} plain label="  " onPress={toggle} />
+              </Box>
+            </Box>
+          ) : null}
           <Button key={key + '-name'} plain onPress={toggle}>{title}</Button>
         </Box>
       )
