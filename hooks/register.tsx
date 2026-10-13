@@ -1455,7 +1455,7 @@ export const register: Register = (on, options) => {
     const others = deck ? '' : sessionsLine(await getSessions($))
     const deckBody = deck
       ? deckKids(deck, {
-          els, cols, pal, card, capsText,
+          els, cols, pal, card, capsText, isDesktop: Svg !== undefined,
           viewed: e.props?.view?.agentId ?? null,
           onGate: b => void update($, viewAtom, x => ({ ...normalize(DEFAULT_VIEW, x), gateOpen: normalize(DEFAULT_VIEW, x).gateOpen === b ? null : b })),
           onExpand: id => void update($, viewAtom, x => ({ ...normalize(DEFAULT_VIEW, x), expanded: normalize(DEFAULT_VIEW, x).expanded === id ? null : id })),

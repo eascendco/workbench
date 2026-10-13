@@ -43,6 +43,8 @@ export type DeckKit = {
   pal: Palette & { themed: boolean }
   card: (key: string, kids: unknown[], marginTop?: number, tinted?: boolean) => unknown
   capsText: (key: string, text: string, slot?: Slot, size?: number) => unknown
+  /** A desktop draws text in a proportional font: a ─ or ■ is wider than a column. */
+  isDesktop: boolean
   /** The agent whose transcript the person is viewing: the log narrows to it. */
   viewed: string | null
   onGate: (b: DeckBucket) => void
@@ -64,6 +66,9 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
   const slot = (role: Role) => ROLE[role][0]
   // The text width inside a card inside the section's card: each takes its border and padding.
   const w = Math.max(20, cols - 13)
+  // Cells for a glyph strip (timeline, permission checks, loops) that must stay on one row: on a desktop
+  // ─ ■ ● draw wider than a column, about 1.6 of them, so a strip w cells long wrapped onto a second row.
+  const strip = kit.isDesktop ? Math.max(8, Math.floor(w * 0.55)) : w
   const modelName = prettyModel(m.model)
   const advising = isAdvising(a)
   const running = cards.filter(c => c.status === 'running')
@@ -155,18 +160,18 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
     out.push(
       card('fd-arch', [
         head('fd-arch-h', ARCH_LABEL, 'arch', <Text key="fd-arch-n"><Text color={col('arch')}>{advising ? 'advising' : 'on call'}</Text><Text dimColor>{` · ${plural(a.consults.length, 'consult')}`}</Text></Text>),
-        <Text key="fd-arch-tl" color={col('arch')}>{consultTimeline(a, now, w)}</Text>,
+        <Text key="fd-arch-tl" color={col('arch')} wrap="truncate-end">{consultTimeline(a, now, strip)}</Text>,
         <Text key="fd-arch-last" dimColor wrap="truncate-end">
           {!last ? 'not consulted yet'
             : advising ? `consulting for ${fmtDuration(now - last.at)}`
             : `last ${fmtDuration(now - (last.endAt ?? last.at))} ago · took ${fmtDuration((last.endAt ?? now) - last.at)}`}
         </Text>,
-        <Box key="fd-arch-mo" flexDirection="row" flexWrap="wrap" columnGap={2}>
+        <Text key="fd-arch-mo" wrap="truncate-end">
           {(['before a plan', 'error repeats', 'before done'] as const).map(mo => (
-            <Text key={'fd-mo-' + mo} color={last?.moment === mo ? col('arch') : col('dim')} bold={last?.moment === mo}>{`${last?.moment === mo ? '◆' : '◇'} ${mo}`}</Text>
+            <Text key={'fd-mo-' + mo} color={last?.moment === mo ? col('arch') : col('dim')} bold={last?.moment === mo}>{`${last?.moment === mo ? '◆' : '◇'} ${mo}  `}</Text>
           ))}
           <Text key="fd-mo-inf" color={col('faint')}>(inferred)</Text>
-        </Box>,
+        </Text>,
         a.lastAdvice ? <Text key="fd-arch-adv" color={col('arch')} wrap="truncate-end">{`» ${a.lastAdvice}`}</Text> : null,
       ], 1),
     )
@@ -181,14 +186,14 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
     const kids: unknown[] = [
       head('fd-gate-h', 'Permissions', 'gate', <Text key="fd-gate-n" dimColor>{plural(s.total, 'check')}</Text>),
       <Text key="fd-strip" wrap="truncate-end">
-        {g.recent.slice(-w).map((c, i) => <Text key={'fd-c-' + i} color={verdictColor(c)} dimColor={c.inSubagent}>{c.verdict === 'deny' ? '✗' : '■'}</Text>)}
+        {g.recent.slice(-strip).map((c, i) => <Text key={'fd-c-' + i} color={verdictColor(c)} dimColor={c.inSubagent}>{c.verdict === 'deny' ? '✗' : '■'}</Text>)}
       </Text>,
-      <Box key="fd-gate-sum" flexDirection="row" flexWrap="wrap" columnGap={2}>
-        <Text key="fd-g-r"><Text color={col('gate')}>■</Text><Text dimColor>{` ${s.rule} allowed`}</Text></Text>
-        <Text key="fd-g-c"><Text color={col('cleared')}>■</Text><Text dimColor>{` ${s.cleared} ${decider}`}</Text></Text>
-        {s.ask > 0 ? <Text key="fd-g-a" color={col('amber')}>{`■ ${s.ask} pending`}</Text> : null}
-        <Text key="fd-g-d" color={s.deny > 0 ? col('warn') : col('dim')}>{`✗ ${s.deny} denied`}</Text>
-      </Box>,
+      <Text key="fd-gate-sum" wrap="truncate-end">
+        <Text color={col('gate')}>■</Text><Text dimColor>{` ${s.rule} allowed  `}</Text>
+        <Text color={col('cleared')}>■</Text><Text dimColor>{` ${s.cleared} ${decider}  `}</Text>
+        {s.ask > 0 ? <Text color={col('amber')}>{`■ ${s.ask} pending  `}</Text> : null}
+        <Text color={s.deny > 0 ? col('warn') : col('dim')}>{`✗ ${s.deny} denied`}</Text>
+      </Text>,
       <Box key="fd-gate-b" flexDirection="row" columnGap={2} marginTop={1}>
         {(['file', 'shell', 'other'] as const).map((b: DeckBucket) => {
           const tl = g.totals[b]
@@ -267,7 +272,7 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
         <Box flexShrink={0}><Text bold>other loops</Text></Box>
         <Box flexShrink={0}><Text dimColor>{`${lp.length} seen · ${active} active`}</Text></Box>
         <Text wrap="truncate-end">
-          {lp.slice(-Math.max(4, w - 28)).map((l, i) => (
+          {lp.slice(-Math.max(4, strip - 20)).map((l, i) => (
             <Text key={'fd-lp-' + i} color={isLoopActive(l, now) ? col('agent') : l.isDone ? col('dim') : col('faint')}>{isLoopActive(l, now) ? '●' : l.isDone ? '✓' : '○'}</Text>
           ))}
         </Text>
