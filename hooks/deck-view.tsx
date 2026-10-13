@@ -1,5 +1,5 @@
 // The In Flight card's drawing, stacked for the Workbench's one column: main vitals, the
-// sessions on this machine, the architect, the permission gate, agent cards and lanes, other loops, the turn receipt and the
+// sessions on this machine, the architect, the permission gate, the agents list, other loops, the turn receipt and the
 // session log. Pure: register.tsx reads the state and passes the presses back in.
 //
 // Adapted from claude-flightdeck (https://github.com/scasella/claude-flightdeck, hooks/register.tsx),
@@ -10,13 +10,12 @@ import type { DeckAgent, DeckBucket, DeckCheck, DeckLogLine, DeckSession } from 
 import type { Palette, Slot } from './bench'
 import {
   cardTitle, consultTimeline, fmtDuration, fmtTimer, fmtUsd, gateSummary, gauge, isAdvising, isLoopActive, kTokens,
-  limitLabel, plural, prettyModel, sessionsLine, shorten, titleLines,
+  limitLabel, plural, prettyModel, sessionsLine, shorten,
 } from './deck'
 import type { DeckData } from './deck'
 
-/** Agent tiles side by side; earlier agents are listed below them, this many rows at most. */
-const TILES = 3
-const EARLIER_ROWS = 6
+/** Agents listed, newest first, before `+n more`. */
+const AGENT_ROWS = 6
 const ARCH_LABEL = 'Architect'
 /** Sessions listed before `+n more`. */
 const SESSION_ROWS = 8
@@ -87,7 +86,7 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
   const ctx = u.pct !== null ? gauge(u.pct, Math.min(16, Math.max(6, w - 18))) : null
   out.push(
     card('fd-main', [
-      head('fd-main-h', `${modelName} · main`, 'main', <Text key="fd-run" color={m.isRunning ? col('main') : col('dim')}>{m.isRunning ? '● working' : '○ idle'}</Text>),
+      head('fd-main-h', modelName, 'main', <Text key="fd-run" color={m.isRunning ? col('main') : col('dim')}>{m.isRunning ? '● working' : '○ idle'}</Text>),
       <Text key="fd-effort" wrap="truncate-end">
         <Text dimColor>effort </Text>
         <Text color={col('main')}>{'▮'.repeat(effortN) + '▯'.repeat(4 - effortN)} </Text>
@@ -106,20 +105,20 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
         </Text>
       ) : null,
       u.costUsd !== null || u.limits.length > 0 ? (
-        <Box key="fd-cost" flexDirection="row" flexWrap="wrap" columnGap={2}>
-          {u.costUsd !== null ? <Text key="fd-usd" color={col('text')}>{fmtUsd(u.costUsd)}</Text> : null}
-          {u.limits.slice(0, 2).map(l => {
+        <Text key="fd-cost" wrap="truncate-end">
+          {u.costUsd !== null ? <Text color={col('text')}>{fmtUsd(u.costUsd)}</Text> : null}
+          {u.limits.slice(0, 2).map((l, i) => {
             const lg = gauge(l.pct, 5)
             return (
               <Text key={'fd-lim-' + l.kind}>
-                <Text dimColor>{`${limitLabel(l.kind)} `}</Text>
+                <Text dimColor>{`${u.costUsd !== null || i > 0 ? '  ' : ''}${limitLabel(l.kind)} `}</Text>
                 <Text color={l.pct >= 80 ? col('warn') : col('main')}>{lg.on}</Text>
                 <Text color={col('faint')}>{lg.off}</Text>
                 <Text dimColor>{` ${Math.round(l.pct)}%`}</Text>
               </Text>
             )
           })}
-        </Box>
+        </Text>
       ) : null,
     ], 1, true),
   )
@@ -155,7 +154,7 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
     const last = a.consults[a.consults.length - 1]
     out.push(
       card('fd-arch', [
-        head('fd-arch-h', `${ARCH_LABEL} · ${advising ? 'advising' : 'on call'}`, 'arch', <Text key="fd-arch-n"><Text dimColor>consults </Text><Text color={col('arch')} bold>{a.consults.length}</Text></Text>),
+        head('fd-arch-h', ARCH_LABEL, 'arch', <Text key="fd-arch-n"><Text color={col('arch')}>{advising ? 'advising' : 'on call'}</Text><Text dimColor>{` · ${plural(a.consults.length, 'consult')}`}</Text></Text>),
         <Text key="fd-arch-tl" color={col('arch')}>{consultTimeline(a, now, w)}</Text>,
         <Text key="fd-arch-last" dimColor wrap="truncate-end">
           {!last ? 'not consulted yet'
@@ -180,7 +179,7 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
     const said = (c: DeckCheck) => (c.verdict === 'rule' ? 'allowed' : c.verdict === 'cleared' ? decider : c.verdict === 'ask' ? 'pending' : 'denied')
     const open = v.gateOpen
     const kids: unknown[] = [
-      head('fd-gate-h', 'Gate · permissions', 'gate', <Text key="fd-gate-n" dimColor>{plural(s.total, 'check')}</Text>),
+      head('fd-gate-h', 'Permissions', 'gate', <Text key="fd-gate-n" dimColor>{plural(s.total, 'check')}</Text>),
       <Text key="fd-strip" wrap="truncate-end">
         {g.recent.slice(-w).map((c, i) => <Text key={'fd-c-' + i} color={verdictColor(c)} dimColor={c.inSubagent}>{c.verdict === 'deny' ? '✗' : '■'}</Text>)}
       </Text>,
@@ -213,53 +212,36 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
     out.push(card('fd-gate', kids, 1))
   }
 
-  // ── agents: the newest three as tiles side by side, any earlier ones listed below
+  // ── agents: one full-width row each, newest first, like Sessions. The title is Text so it truncates: a desktop
+  // draws a Button natively and wraps its label, so the press sits on the ▸ in front.
   if (cards.length > 0) {
     const statusColor = (c: DeckAgent) => (c.status === 'failed' ? col('warn') : c.status === 'done' ? col('gate') : col('agent'))
     const glyph = (c: DeckAgent) => (c.status === 'running' ? '◐' : c.status === 'done' ? '✓' : c.status === 'failed' ? '✗' : '■')
     const expand = (id: string) => () => kit.onExpand(id)
-    const tiles = cards.slice(-TILES)
-    const earlier = cards.slice(0, -TILES).reverse()
-    // Each tile shares the row; its text gets the tile less its border and padding.
-    const inner = Math.max(6, Math.floor((w - (tiles.length - 1)) / tiles.length) - 4)
-    const kids: unknown[] = [head('fd-ag-h', `Agents · ${running.length} running · ${cards.length} total`, 'agent')]
-    kids.push(
-      <Box key="fd-tiles" flexDirection="row" columnGap={1} marginTop={1} width="100%">
-        {tiles.map((c, i) => {
-          const title = titleLines(cardTitle(c), inner - 3, inner)
-          const sameModel = !c.model || prettyModel(c.model) === modelName
-          const isMax = c.lastStop === 'max_tokens'
-          return (
-            <Box key={'fd-cd-' + c.id} flexDirection="column" width={`${Math.floor(100 / tiles.length)}%`} flexShrink={1} minWidth={0}
-              borderStyle={v.expanded === c.id ? 'double' : 'round'} borderColor={isMax ? col('warn') : col('agent')} borderDimColor={c.status !== 'running' && v.expanded !== c.id} paddingX={1}>
-              <Button key={'fd-cb-' + c.id} plain hotkey={String(i + 1)} label={title[0]} onPress={expand(c.id)} />
-              <Text bold wrap="truncate-end">{title[1] || ' '}</Text>
-              <Text color={col('dim')} wrap="truncate-end">{sameModel ? c.type : `${c.type} · ${prettyModel(c.model)}`}</Text>
-              <Text dimColor wrap="truncate-end">{c.steps > 0 ? `${kTokens(c.ctx)} ctx · ${c.steps} st` : 'starting…'}</Text>
-              <Box flexDirection="row" columnGap={1}>
-                <Text color={isMax ? col('warn') : statusColor(c)} wrap="truncate-end">{`${glyph(c)} ${isMax ? 'max_tokens' : c.status}`}</Text>
-                <Box flexShrink={0}>{clock('fd-cc-' + c.id, c.spawnedAt, c.endedAt, col('dim'))}</Box>
-              </Box>
+    const rows = cards.slice().reverse()
+    const kids: unknown[] = [head('fd-ag-h', 'Agents', 'agent', <Text key="fd-ag-n" dimColor>{`${running.length} running · ${cards.length} total`}</Text>)]
+    for (const [i, c] of rows.slice(0, AGENT_ROWS).entries()) {
+      const isMax = c.lastStop === 'max_tokens'
+      const sameModel = !c.model || prettyModel(c.model) === modelName
+      const meta = [sameModel ? c.type : `${c.type} · ${prettyModel(c.model)}`, c.steps > 0 ? `${kTokens(c.ctx)} ctx · ${c.steps} st` : 'starting…'].join(' · ')
+      kids.push(
+        <Box key={'fd-ag-' + c.id} flexDirection="column" marginTop={1} width="100%">
+          <Box flexDirection="row" columnGap={1} width="100%">
+            <Box flexShrink={0}>
+              <Button key={'fd-cb-' + c.id} plain hotkey={i < 9 ? String(i + 1) : undefined} label={v.expanded === c.id ? '▾' : '▸'} onPress={expand(c.id)} />
             </Box>
-          )
-        })}
-      </Box>,
-    )
-    if (earlier.length) {
-      kids.push(<Box key="fd-ag-earlier" marginTop={1}>{capsText('fd-ag-earlier-l', `Earlier · ${earlier.length}`, slot('dim'))}</Box>)
-      for (const [i, c] of earlier.slice(0, EARLIER_ROWS).entries())
-        kids.push(
-          <Box key={'fd-er-' + c.id} flexDirection="row" columnGap={1} alignItems="center" width="100%">
-            <Text color={statusColor(c)}>{glyph(c)}</Text>
-            <Box flexGrow={1} flexShrink={1} minWidth={0}>
-              <Button key={'fd-eb-' + c.id} plain hotkey={i + TILES < 9 ? String(i + TILES + 1) : undefined} label={shorten(cardTitle(c), Math.max(8, w - 18))} onPress={expand(c.id)} />
-            </Box>
-            {c.steps > 0 ? <Text dimColor>{`${kTokens(c.ctx)} ctx`}</Text> : null}
-            <Box flexShrink={0}>{clock('fd-ec-' + c.id, c.spawnedAt, c.endedAt, col('dim'))}</Box>
-          </Box>,
-        )
-      if (earlier.length > EARLIER_ROWS) kids.push(<Text key="fd-ag-more" color={col('faint')}>{`+${earlier.length - EARLIER_ROWS} more`}</Text>)
+            <Box width={9} flexShrink={0}><Text color={isMax ? col('warn') : statusColor(c)} bold={c.status === 'running'} wrap="truncate-end">{`${glyph(c)} ${c.status}`}</Text></Box>
+            <Box flexGrow={1} flexShrink={1} minWidth={0}><Text bold={c.status === 'running'} wrap="truncate-end">{cardTitle(c)}</Text></Box>
+            <Box flexShrink={0}>{clock('fd-cc-' + c.id, c.spawnedAt, c.endedAt, col('dim'))}</Box>
+          </Box>
+          <Box flexDirection="row" columnGap={1} paddingLeft={13} width="100%">
+            {isMax ? <Box flexShrink={0}><Text color={col('warn')}>max_tokens</Text></Box> : null}
+            <Box flexGrow={1} flexShrink={1} minWidth={0}><Text dimColor wrap="truncate-end">{meta}</Text></Box>
+          </Box>
+        </Box>,
+      )
     }
+    if (rows.length > AGENT_ROWS) kids.push(<Text key="fd-ag-more" color={col('faint')}>{`+${rows.length - AGENT_ROWS} more`}</Text>)
     const x = cards.find(c => c.id === v.expanded)
     if (x) {
       kids.push(
@@ -273,7 +255,7 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
         </Box>,
       )
     }
-    kids.push(<Text key="fd-ag-hint" color={col('faint')}>{`press an agent to expand it · 1-${Math.min(9, cards.length)} when the pane has focus`}</Text>)
+    kids.push(<Text key="fd-ag-hint" color={col('faint')}>{`press ▸ to expand an agent · 1-${Math.min(9, cards.length)} when the pane has focus`}</Text>)
     out.push(card('fd-agents', kids, 1))
   }
 
@@ -282,8 +264,8 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
     const active = lp.filter(l => isLoopActive(l, now)).length
     out.push(
       <Box key="fd-loops" flexDirection="row" columnGap={1} marginTop={1} width="100%">
-        <Text bold>other loops</Text>
-        <Text dimColor>{`${lp.length} seen · ${active} active`}</Text>
+        <Box flexShrink={0}><Text bold>other loops</Text></Box>
+        <Box flexShrink={0}><Text dimColor>{`${lp.length} seen · ${active} active`}</Text></Box>
         <Text wrap="truncate-end">
           {lp.slice(-Math.max(4, w - 28)).map((l, i) => (
             <Text key={'fd-lp-' + i} color={isLoopActive(l, now) ? col('agent') : l.isDone ? col('dim') : col('faint')}>{isLoopActive(l, now) ? '●' : l.isDone ? '✓' : '○'}</Text>
@@ -298,10 +280,10 @@ export function deckKids(d: DeckData, kit: DeckKit): unknown[] {
     out.push(
       card('fd-receipt', [
         m.isRunning ? (
-          <Box key="fd-rc" flexDirection="row" flexWrap="wrap" columnGap={1}>
-            <Text color={col('main')}>{`◐ ${modelName.toLowerCase()} · turn`}</Text>
+          <Box key="fd-rc" flexDirection="row" columnGap={1} width="100%">
+            <Box flexShrink={0}><Text color={col('main')}>{`◐ ${modelName.toLowerCase()} · turn`}</Text></Box>
             <Box flexShrink={0}>{clock('fd-turn', t.startedAt, null, col('main'))}</Box>
-            <Text dimColor>{`· ${plural(t.edits, 'edit')} · ${plural(t.errors, 'error')}`}</Text>
+            <Box flexGrow={1} flexShrink={1} minWidth={0}><Text dimColor wrap="truncate-end">{`· ${plural(t.edits, 'edit')} · ${plural(t.errors, 'error')}`}</Text></Box>
           </Box>
         ) : r ? (
           <Text key="fd-rc" wrap="wrap">

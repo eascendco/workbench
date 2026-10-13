@@ -163,11 +163,10 @@ const dm = (t: string) => sp(TH.dim, t)
 const badge = (n: number) => `<span class="badge">${n}</span>`
 const panel = (n: number, inner: string, cls = '') => `<div class="card mt rel ${cls}">${badge(n)}${inner}</div>`
 const key = (k: string) => sp(TH.claude, k) + dm(':')
-const tile = (g: string, gc: string, n: number, t1: string, t2: string, type: string, ctx: string, st: string, clock: string, live: boolean, open: boolean) => `
-  <div class="col" style="flex:1;min-width:0;border:${open ? '3px double' : '1px solid'} ${live || open ? TH.sugg : '#5a5a7a'};border-radius:${open ? 3 : 9}px;padding:6px 9px;gap:1px">
-    <div class="trunc">${key(String(n))} <span class="bold">${t1}</span></div><div class="trunc bold">${t2}</div>
-    <div class="trunc" style="color:${TH.inact}">${type}</div><div class="trunc" style="color:${TH.dim}">${ctx}</div>
-    <div class="row" style="gap:6px"><span class="trunc" style="color:${gc}">${g} ${st}</span><span style="color:${TH.inact}">${clock}</span></div>
+const agentRow = (open: boolean, g: string, gc: string, st: string, title: string, clock: string, meta: string, warn = '') => `
+  <div class="col mt">
+    <div class="row"><span class="btn" style="padding:0 6px;font-size:11px;color:${TH.sugg}">${open ? '▾' : '▸'}</span><span style="width:72px;flex-shrink:0;color:${gc};font-weight:${st === 'running' ? 600 : 400}">${g} ${st}</span><span class="grow trunc" style="font-weight:${st === 'running' ? 600 : 400}">${title}</span>${sp(TH.inact, clock)}</div>
+    <div class="row" style="padding-left:110px">${warn ? sp(TH.err, warn) : ''}<span class="grow trunc">${dm(meta)}</span></div>
   </div>`
 const strip = 'rrrrcrrrrraccrrrrrrsrrcrrrrrrrrrcrrrrdrrrr'.split('').map(k => (k === 'r' ? sp(TH.ok, '■') : k === 'c' ? sp(TH.perm, '■') : k === 'a' ? sp(TH.warn, '■') : k === 'd' ? sp(TH.err, '✗') : sp(TH.ok, '■', 'opacity:.45'))).join('')
 const logRow = (t: string, who: string, wc: string, text: string, tc = TH.text) => `<div class="row"><span style="width:44px;flex-shrink:0;color:${TH.subtle}">${t}</span><span class="trunc bold" style="width:86px;flex-shrink:0;color:${wc}">${who}</span><span class="grow trunc" style="color:${tc}">${text}</span></div>`
@@ -180,10 +179,10 @@ const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${infl
   <div class="pane-body">
     ${collapsedRow('Tasks', 'list-checks', C.ok)}${collapsedRow('Files', 'folder', C.folder)}
     <div class="card"><span class="row"><span class="muted">▼</span>${img(icon('gauge', C.write, 16))}<span>In Flight · Opus 5.5 working</span></span>
-      ${panel(1, `<div class="row between">${capsL('Opus 5.5 · main', C.write)}${sp(TH.claude, '● working')}</div>
+      ${panel(1, `<div class="row between">${capsL('Opus 5.5', C.write)}${sp(TH.claude, '● working')}</div>
         <div>${dm('effort ')}${sp(TH.claude, '▮▮▮▯ ')}${sp(TH.claude, 'high', 'font-weight:600')}${dm('  mode auto  42 req')}</div>
         <div>${dm('ctx ')}<span class="mono">${sp(TH.claude, '▰▰▰▰▰')}${sp(TH.subtle, '▱▱▱▱▱▱▱▱▱▱▱')}</span><span class="bold"> 31%</span>${dm(' 62k/200k')}${sp(TH.warn, '  ⟲1')}</div>
-        <div class="row wrap">${sp(TH.text, '$4.82')}<span>${dm('5h ')}<span class="mono">${sp(TH.claude, '▰▰')}${sp(TH.subtle, '▱▱▱')}</span>${dm(' 38%')}</span><span>${dm('7d ')}<span class="mono">${sp(TH.claude, '▰')}${sp(TH.subtle, '▱▱▱▱')}</span>${dm(' 12%')}</span></div>`, 'tint')}
+        <div class="trunc">${sp(TH.text, '$4.82')}${dm('&nbsp;&nbsp;5h ')}<span class="mono">${sp(TH.claude, '▰▰')}${sp(TH.subtle, '▱▱▱')}</span>${dm(' 38%&nbsp;&nbsp;7d ')}<span class="mono">${sp(TH.claude, '▰')}${sp(TH.subtle, '▱▱▱▱')}</span>${dm(' 12%')}</div>`, 'tint')}
       ${panel(2, `<div class="row between">${capsL('Sessions')}${dm('1 waiting · 2 working · 1 done')}</div>
         ${[
           ['◆ waiting', TH.warn, 'Add the hourly view', '0:48', 'input needed', 'weather-app · desktop'],
@@ -193,12 +192,12 @@ const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${infl
         ].map(([st, c, name, clock, why, where]) => `<div class="col mt">
           <div class="row"><span style="width:80px;flex-shrink:0;color:${c};font-weight:${st.startsWith('✓') ? 400 : 600}">${st}</span><span class="grow trunc" style="font-weight:${st.startsWith('✓') ? 400 : 600}">${name}</span>${dm(clock)}</div>
           <div class="row" style="padding-left:88px">${why ? sp(TH.warn, why) : ''}<span class="grow trunc">${dm(where)}</span></div></div>`).join('')}`)}
-      ${panel(3, `<div class="row between">${capsL('Architect · on call', C.read)}<span>${dm('consults ')}${sp(TH.merged, '2', 'font-weight:600')}</span></div>
+      ${panel(3, `<div class="row between">${capsL('Architect', C.read)}<span>${sp(TH.merged, 'on call')}${dm(' · 2 consults')}</span></div>
         <div class="mono" style="color:${TH.merged}">◆━━─────────────────────────────◆━━━──────────</div>
         <div>${dm('last 3m02s ago · took 41s')}</div>
         <div class="row wrap">${sp(TH.inact, '◇ before a plan')}${sp(TH.inact, '◇ error repeats')}${sp(TH.merged, '◆ before done', 'font-weight:600')}${sp(TH.subtle, '(inferred)')}</div>
         <div class="trunc" style="color:${TH.merged}">» Ship it after one more test of the gate drill-down.</div>`)}
-      ${panel(4, `<div class="row between">${capsL('Gate · permissions', C.ok)}${dm('42 checks')}</div>
+      ${panel(4, `<div class="row between">${capsL('Permissions', C.ok)}${dm('42 checks')}</div>
         <div class="mono">${strip}</div>
         <div class="row wrap"><span>${sp(TH.ok, '■')}${dm(' 34 allowed')}</span><span>${sp(TH.perm, '■')}${dm(' 6 classifier')}</span>${sp(TH.warn, '■ 1 pending')}${sp(TH.err, '✗ 1 denied')}</div>
         <div class="row mt" style="gap:16px"><span>${key('f')} file 24</span><span>${key('s')} shell 14 ▾</span><span>${key('o')} other 4</span></div>
@@ -206,21 +205,18 @@ const inflight = `<!doctype html><html><head><meta charset="utf-8"><style>${infl
         <div class="trunc">${sp(TH.perm, '■ ')}${sp(TH.inact, 'classifier ')}Bash → npm test -- deck</div>
         <div class="trunc">${sp(TH.warn, '■ ')}${sp(TH.inact, 'pending&nbsp;&nbsp;&nbsp;&nbsp;')}Bash → curl -H "Authorization: Bearer •••" api</div>
         <div class="trunc">${sp(TH.err, '✗ ')}${sp(TH.inact, 'denied&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')}Bash → rm -rf build</div>`)}
-      ${panel(5, `${capsL('Agents · 2 running · 5 total', C.read)}
-        <div class="row mt" style="gap:8px;align-items:stretch">
-          ${tile('✓', TH.ok, 1, 'Audit the gate', 'redaction rules', 'Explore', '41k ctx · 12 st', 'done', '1:12', false, false)}
-          ${tile('◐', TH.sugg, 2, 'Find every', 'caller of addTouch', 'Explore', '28k ctx · 7 st', 'running', '2:05', true, true)}
-          ${tile('◐', TH.sugg, 3, 'Check skins', 'palette in light…', 'general', 'starting…', 'running', '0:48', true, false)}
-        </div>
-        <div class="mt">${capsL('Earlier · 2')}</div>
-        <div class="row">${sp(TH.ok, '✓')}<span class="grow trunc">${key('4')} Map the pane redraw triggers</span>${dm('36k ctx')}${sp(TH.inact, '0:54')}</div>
-        <div class="row">${sp(TH.err, '✗')}<span class="grow trunc">${key('5')} Run the desktop screenshot script</span>${dm('9k ctx')}${sp(TH.inact, '0:21')}</div>
+      ${panel(5, `<div class="row between">${capsL('Agents', C.read)}${dm('2 running · 5 total')}</div>
+        ${agentRow(false, '◐', TH.sugg, 'running', 'Check skins palette in light themes', '0:48', 'general-purpose · starting…')}
+        ${agentRow(true, '◐', TH.sugg, 'running', 'Find every caller of addTouch', '2:05', 'Explore · 28k ctx · 7 st')}
+        ${agentRow(false, '✓', TH.ok, 'done', 'Audit the gate redaction rules', '1:12', 'Explore · 41k ctx · 12 st')}
+        ${agentRow(false, '✓', TH.ok, 'done', 'Map the pane redraw triggers', '0:54', 'Explore · 36k ctx · 9 st')}
+        ${agentRow(false, '✗', TH.err, 'failed', 'Run the desktop screenshot script', '0:21', 'general-purpose · 9k ctx · 3 st')}
         <div class="card mt" style="border-color:${TH.sugg};border-radius:2px">
           <div class="bold">Find every caller of addTouch</div>
           <div>${dm('Explore · Opus 5.5 · running · 7 steps')}</div><div>${dm('ctx 28k · out 3k')}</div>
           <div class="trunc">· Grep → addTouch</div><div class="trunc">· Read → hooks/register.tsx</div><div class="trunc">· Read → hooks/bench.ts</div>
         </div>`)}
-      ${panel(6, `<div class="row">${sp(TH.claude, '◐ opus 5.5 · turn 2:14')}${dm('· 3 edits · 1 error')}</div>`)}
+      ${panel(6, `<div class="row"><span style="flex-shrink:0">${sp(TH.claude, '◐ opus 5.5 · turn 2:14')}</span><span class="grow trunc">${dm('· 3 edits · 1 error')}</span></div>`)}
       ${panel(7, `${capsL('Session log')}
         ${logRow('14:02', 'you', TH.text, 'add a third card for the agents')}
         ${logRow('14:03', 'architect', TH.merged, 'before a plan · advisor tool')}
