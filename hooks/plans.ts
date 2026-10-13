@@ -17,8 +17,11 @@ export type PlanFront = {
   date: string
   end: string
   size?: string
-  status: 'open' | 'done'
+  /** Parked (on hold) and superseded (replaced by other plans) are kept on disk but not shown. */
+  status: PlanStatus
 }
+export type PlanStatus = 'open' | 'done' | 'parked' | 'superseded'
+const STATUSES: PlanStatus[] = ['open', 'done', 'parked', 'superseded']
 export type Plan = PlanFront & { file: string; items: WorkItem[]; text: string }
 
 const MARK: Record<WorkItem['status'], string> = { todo: ' ', doing: '~', done: 'x', draft: '?' }
@@ -111,7 +114,7 @@ export function parsePlan(text: string, file: string): Plan | undefined {
     date: f.date,
     end: f.end || f.date,
     size: f.size || undefined,
-    status: f.status === 'done' ? 'done' : 'open',
+    status: STATUSES.includes(f.status as PlanStatus) ? (f.status as PlanStatus) : 'open',
     items: parseItems(text, f.task),
   }
 }
@@ -164,7 +167,7 @@ export function groupOf(p: Plan): Group & { file: string } {
     size: p.size,
     start: p.date,
     end: p.end,
-    open: p.status !== 'done',
+    open: p.status === 'open',
     parts: [],
     stages: entry.stages,
     items: p.items,
@@ -176,7 +179,7 @@ export function groupOf(p: Plan): Group & { file: string } {
 export function snapshotOfPlans(plans: Plan[], folder: string): Snap {
   if (!plans.length) return { status: 'none', shorts: [], prev: [], next: [], folder }
   const byDate = [...plans].sort((a, b) => a.date.localeCompare(b.date) || a.task.localeCompare(b.task))
-  const open = byDate.filter(p => p.status !== 'done').map(groupOf)
+  const open = byDate.filter(p => p.status === 'open').map(groupOf)
   const done = byDate.filter(p => p.status === 'done').sort((a, b) => a.end.localeCompare(b.end)).map(groupOf)
   const shorts = [...new Set(plans.map(p => p.short).filter(Boolean))]
   return { status: 'ready', folder, shorts, cur: open[0], next: open.slice(1, 5), prev: done.slice(-3) }

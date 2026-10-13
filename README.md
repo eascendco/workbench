@@ -107,7 +107,7 @@ status: open
 - `[ ]` to do, `[~]` in progress, `[x]` done, `[?]` a draft waiting for your approval.
 - The word in backticks is the stage: `spec`, `design`, `build`, `track`, `test` or `ship`.
 - Indented lines under an item are its details.
-- The current task is the earliest open plan by `date`. The next three are Up next.
+- The current task is the earliest open plan by `date`. The next three are Up next. Set `status: parked` or `status: superseded` to keep a plan on disk without showing it.
 - When every item is done, the plan's `status` becomes `done` and the next task moves up.
 - Anything else in the file, like a `## Notes` section, is kept as you wrote it.
 

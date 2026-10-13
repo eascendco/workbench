@@ -88,6 +88,12 @@ test('the current task is the earliest open plan; done plans drop out', async ()
   expect(snap.next.map(g => g.key)).toEqual(['alerts'])
   const done = snapshotOfPlans([parsePlan(FORECAST.replace('status: open', 'status: done'), 'a')!, parsePlan(ALERTS, 'b')!], ROOT)
   expect(done.cur?.key).toBe('alerts')
+  // Parked and superseded plans are kept on disk but never current or up next
+  for (const st of ['parked', 'superseded'] as const) {
+    const hidden = snapshotOfPlans([parsePlan(FORECAST.replace('status: open', `status: ${st}`), 'a')!, parsePlan(ALERTS, 'b')!], ROOT)
+    expect(hidden.cur?.key).toBe('alerts')
+    expect(hidden.next.length).toBe(0)
+  }
 })
 
 test('helpers: add parsing, item in hand, clipping, task keys, the plans folder setting', async () => {
