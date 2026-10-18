@@ -6,7 +6,7 @@ import type { BarIn } from './draw'
 import { ACCENT, bandBarSvg, bandTitleSvg, DOING, DONE, MUTED, paneBarSvg, STAGE_COLOR } from './draw'
 import { activeItem, byStatus, themeFor, clip, counts, localDate, newId, nextStatus, parseAdd, STAGES, TITLE_MAX, withStages } from './logic'
 import type { Plan, PlanFront } from './plans'
-import { allDone, devEntryOf, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
+import { allDone, devEntryOf, findOpen, newPlanText, newTaskKey, parsePlan, plansDirName, setFront, setItems, snapshotOfPlans } from './plans'
 import {
   absOf, addTouch, badge, baseOf, extOf, FILE_TOOLS, foldersTo, humanSize, isDirty, join,
   inkOf, paletteOf, parentOf, parseStatus, relDir, rowsOf, search, THEME_KEY,
@@ -283,11 +283,32 @@ async function loadPlans($: $) {
   return (plans = plansDir ? await loadPlansIn($, plansDir) : [])
 }
 
+/** The task picked as current in each project, by project folder; kept across sessions. Without one, the earliest open plan. */
+const PICKS = 'picks'
+const picksOf = async ($: $): Promise<Record<string, string>> => {
+  const v = await quiet($.store.get(PICKS))
+  return v && typeof v === 'object' ? (v as Record<string, string>) : {}
+}
+
+/** Makes `key` this project's current task; undefined, or the earliest open plan, goes back to following the dates. */
+async function switchTask($: $, key: string | undefined) {
+  await loadPlans($)
+  if (!plansDir) return
+  const folder = plansDir.slice(0, -settings.plansDir.length - 1)
+  const earliest = snapshotOfPlans(plans, folder).cur?.key
+  const picks = await picksOf($)
+  if (!key || key === earliest) delete picks[folder]
+  else picks[folder] = key
+  await quiet($.store.set(PICKS, picks))
+  await refresh($)
+}
+
 async function refresh($: $) {
   try {
     await loadPlans($)
+    const folder = plansDir ? plansDir.slice(0, -settings.plansDir.length - 1) : ''
     const snap: Snap = plansDir
-      ? snapshotOfPlans(plans, plansDir.slice(0, -settings.plansDir.length - 1))
+      ? snapshotOfPlans(plans, folder, (await picksOf($))[folder])
       : { status: 'none', shorts: [], prev: [], next: [] }
     await update($, snapAtom, () => snap)
     return snap
@@ -377,6 +398,7 @@ const USAGE = [
   '`/task approve [n]` approve one draft, or all',
   '`/task add [stage:] title -- details`',
   '`/task break` ask Claude to draft the work items',
+  '`/task switch [n | task | words]` work on another open task; `/task switch back` returns to the earliest by date',
   '`/task pane` open the side pane',
   '`/task new <title>` start a task: a plan file in the plans folder',
   '`/task refresh` re-read the plan files',
@@ -402,7 +424,7 @@ function textView(snap: Snap, selected?: string) {
   const items = cur.items.length
     ? ['', '**Work items**', ...cur.items.map((i, k) => `${k + 1}. ${GLYPH[i.status]} ${clip(i.title, ROW_CHARS)} · ${i.stage}${i.status === 'draft' ? ' · draft' : ''}`)]
     : ['', '**Work items**', 'Not broken down yet: `/task break`']
-  const next = snap.next.length ? ['', '**Up next**', ...snap.next.map(g => `- ${clip(g.title, ROW_CHARS)} · ${dateShort(openDate(g))}`)] : []
+  const next = snap.next.length ? ['', '**Up next** (`/task switch <n>` to work on one)', ...snap.next.map((g, k) => `${k + 1}. ${g.key} ${clip(g.title, ROW_CHARS)} · ${dateShort(openDate(g))}`)] : []
   return [...head, ...now, ...items, ...next].join('\n')
 }
 
@@ -491,6 +513,20 @@ async function taskCommand($: $, e: { args?: string }) {
     return { text: `${msg}: ${it.title} → ${to}` }
   }
   if (verb === 'help') return { text: USAGE }
+  if (verb === 'switch') {
+    const arg = rest.join(' ')
+    const list = snap.next.map((g, k) => `${k + 1} ${g.key} ${g.title}`).join(' · ')
+    if (!arg) return { text: `Working on ${cur.key} ${cur.title}. Switch to: ${list || 'nothing else open'}. Use /task switch <n>, a task key or words of its title.` }
+    if (arg === 'back') {
+      await switchTask($, undefined)
+      const s2 = await read($, snapAtom)
+      return { text: `Back to the earliest open task: ${s2.cur?.key} ${s2.cur?.title}` }
+    }
+    const to = findOpen(plans, snap, arg)
+    if (!to) return { text: `No open task matches "${arg}". Switch to: ${list}` }
+    await switchTask($, to.task)
+    return { text: `Now working on ${to.task} ${to.title}` }
+  }
   // Anything else is a request in words: hand it to Claude with the task and every item's details.
   submitLater($, workPrompt(snap, args))
   return { text: textView(snap, ui.selected) }
@@ -1243,14 +1279,14 @@ export const register: Register = (on, options) => {
         )
 
       // Up next
-      task.push(divider('nx-hr'), capsText('nx-cap', 'Up next'))
+      task.push(divider('nx-hr'), label('nx-h', 'Up next', snap.next.length ? 'press to switch' : undefined))
       const nx = snap.next.slice(0, 3)
       if (!nx.length) task.push(<Box key="nx-none" marginTop={1}><Text {...c('muted')}>Nothing queued</Text></Box>)
       for (const g of nx)
         task.push(
           <Box key={'nx-' + g.key} flexDirection="row" columnGap={1} alignItems="center" marginTop={1} width="100%">
             {dot('nxd-' + g.key, g.items.some(i => i.status === 'doing') ? 'write' : 'muted')}
-            <Box flexGrow={1} flexShrink={1} minWidth={0}><Text wrap="truncate-end" {...c('fg')}>{clip(g.title, 30)}</Text></Box>
+            <Box flexGrow={1} flexShrink={1} minWidth={0}><Button key={'nxb-' + g.key} plain onPress={() => void switchTask($, g.key)}>{clip(g.title, 30)}</Button></Box>
             <Text {...c('muted')}>{shortDate(g.start)}</Text>
           </Box>,
         )

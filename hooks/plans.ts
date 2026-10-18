@@ -176,11 +176,26 @@ export function groupOf(p: Plan): Group & { file: string } {
 }
 
 /** Current task: the earliest open plan by date; then Up next and recently done. */
-export function snapshotOfPlans(plans: Plan[], folder: string): Snap {
+/**
+ * The current task is the open plan picked with `/task switch` (or from Up next), else the earliest
+ * open one by date; Up next is the other open plans in date order. A pick that is done or parked
+ * no longer counts, so the earliest open plan comes back on its own.
+ */
+export function snapshotOfPlans(plans: Plan[], folder: string, picked?: string): Snap {
   if (!plans.length) return { status: 'none', shorts: [], prev: [], next: [], folder }
   const byDate = [...plans].sort((a, b) => a.date.localeCompare(b.date) || a.task.localeCompare(b.task))
   const open = byDate.filter(p => p.status === 'open').map(groupOf)
   const done = byDate.filter(p => p.status === 'done').sort((a, b) => a.end.localeCompare(b.end)).map(groupOf)
   const shorts = [...new Set(plans.map(p => p.short).filter(Boolean))]
-  return { status: 'ready', folder, shorts, cur: open[0], next: open.slice(1, 5), prev: done.slice(-3) }
+  const cur = open.find(g => g.key === picked) ?? open[0]
+  return { status: 'ready', folder, shorts, cur, next: open.filter(g => g !== cur).slice(0, 4), prev: done.slice(-3), isPicked: cur !== open[0] }
+}
+
+/** The open plan `/task switch <arg>` names: its Up next number, its task key, or words of its title. */
+export function findOpen(plans: Plan[], snap: Snap, arg: string): Plan | undefined {
+  const q = arg.trim().toLowerCase()
+  if (!q) return undefined
+  const open = plans.filter(p => p.status === 'open').sort((x, y) => x.date.localeCompare(y.date) || x.task.localeCompare(y.task))
+  if (/^\d+$/.test(q)) return open.find(p => p.task === snap.next[Number(q) - 1]?.key)
+  return open.find(p => p.task.toLowerCase() === q) ?? open.find(p => p.title.toLowerCase().includes(q))
 }

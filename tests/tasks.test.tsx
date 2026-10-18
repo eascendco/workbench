@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import type { WorkItem } from '../types'
 import { activeItem, clip, parseAdd } from '../hooks/logic'
-import { newPlanText, newTaskKey, parsePlan, plansDirName, setItems, snapshotOfPlans } from '../hooks/plans'
+import { findOpen, newPlanText, newTaskKey, parsePlan, plansDirName, setItems, snapshotOfPlans } from '../hooks/plans'
 import type { PlanFront } from '../hooks/plans'
 
 const ROOT = '/Users/x/code/weather-app'
@@ -24,6 +24,7 @@ function world(on: On, files: Record<string, string>, cwd = ROOT) {
   const disk = new Map(Object.entries(files))
   const s = { disk, clock: mock.clock(on) }
   mock.env(on, { HOME: '/Users/x' })
+  mock.store(on)
   on('session.cwd', async () => ({ value: cwd }))
   on('fs.exists', async ($, e) => ({ value: disk.has(e.path) || [...disk.keys()].some(k => k.startsWith(e.path + '/')) }))
   on('fs.read', async ($, e) => {
@@ -203,5 +204,37 @@ test('the file Claude is on shimmers; files edited this turn stay lit until the 
   expect(await lit()).toBe(2)
   await $.prompt.submit({ text: 'next' } as never)
   expect(await lit()).toBe(1) // Claude touched always bolds names; the tree goes back to plain
+  await ui.unmount()
+})
+
+test('a picked task is current until it is done; Up next numbers and keys find the others', async () => {
+  const RADAR = newPlanText(front('radar', 'Rain radar map', '2026-12-20'), [])
+  const all = [parsePlan(FORECAST, 'a')!, parsePlan(ALERTS, 'b')!, parsePlan(RADAR, 'c')!]
+  const picked = snapshotOfPlans(all, ROOT, 'alerts')
+  expect(picked.cur?.key).toBe('alerts')
+  expect(picked.isPicked).toBe(true)
+  expect(picked.next.map(g => g.key)).toEqual(['forecast', 'radar'])
+  expect(snapshotOfPlans(all, ROOT, 'nope').cur?.key).toBe('forecast')
+  // A pick that is done no longer counts: the earliest open plan is current again
+  const done = [parsePlan(FORECAST, 'a')!, parsePlan(ALERTS.replace('status: open', 'status: done'), 'b')!]
+  expect(snapshotOfPlans(done, ROOT, 'alerts').cur?.key).toBe('forecast')
+  const snap = snapshotOfPlans(all, ROOT)
+  expect(findOpen(all, snap, '2')?.task).toBe('radar')
+  expect(findOpen(all, snap, 'ALERTS')?.task).toBe('alerts')
+  expect(findOpen(all, snap, 'radar map')?.task).toBe('radar')
+  expect(findOpen(all, snap, 'zzz')).toBeUndefined()
+})
+
+test('pressing a task in Up next makes it current; /task switch back returns to the earliest', async ($, on) => {
+  world(on, { [PLANS + '/forecast.md']: FORECAST, [PLANS + '/alerts.md']: ALERTS })
+  await run($, '')
+  const ui = await $.ui.mount({ plugin: 'workbench', surface: 'terminal', component: 'Pane', requestId: 'workbench', props: {} } as never)
+  await ui.press({ key: 'nxb-alerts' })
+  expect(await ui.find({ key: 'nxb-forecast' })).toBeDefined() // the forecast task is in Up next now
+  expect(await ui.find({ key: 'nxb-alerts' })).toBeUndefined()
+  expect(await run($, 'switch')).toContain('Working on alerts')
+  expect(await run($, 'switch back')).toContain('forecast Seven-day forecast')
+  expect(await ui.find({ key: 'nxb-alerts' })).toBeDefined()
+  expect(await run($, 'switch severe')).toContain('Now working on alerts')
   await ui.unmount()
 })

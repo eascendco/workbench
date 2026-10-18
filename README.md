@@ -45,7 +45,7 @@ Your current task and what's left on it. See [How tasks work](#how-tasks-work) f
 2. **In progress.** The items you're working on now. **Done** marks one finished.
 3. **Work items.** Every item with its stage. Click an item's square to move it along: draft, to do, in progress, done. The small arrow folds the list.
 4. **Add work item.** Type a title, or `stage: title` to pick the stage.
-5. **Up next.** The next three open tasks by date.
+5. **Up next.** The next three open tasks by date. Press one to work on it instead; the task you left moves into Up next.
 
 ### Files
 
@@ -107,7 +107,7 @@ status: open
 - `[ ]` to do, `[~]` in progress, `[x]` done, `[?]` a draft waiting for your approval.
 - The word in backticks is the stage: `spec`, `design`, `build`, `track`, `test` or `ship`.
 - Indented lines under an item are its details.
-- The current task is the earliest open plan by `date`. The next three are Up next. Set `status: parked` or `status: superseded` to keep a plan on disk without showing it.
+- The current task is the earliest open plan by `date`, unless you switched to another with `/task switch` or from Up next. The switch is kept per project across sessions, and once that task is done or parked the earliest open plan is current again. The next three are Up next. Set `status: parked` or `status: superseded` to keep a plan on disk without showing it.
 - When every item is done, the plan's `status` becomes `done` and the next task moves up.
 - Anything else in the file, like a `## Notes` section, is kept as you wrote it.
 
@@ -124,6 +124,7 @@ Claude gets a `work_items` tool to create tasks, add items and update their stat
 | `/task approve [n]` | Approve one draft, or all of them |
 | `/task add [stage:] title -- details` | Add a work item |
 | `/task break` | Ask Claude to draft the work items |
+| `/task switch [n \| key \| words]` | Work on another open task: its Up next number, its task key or words of its title. With nothing after it, lists them. `/task switch back` returns to the earliest by date |
 | `/task pane` | Open the side pane |
 | `/task <anything else>` | Ask Claude, with the task and its plan file attached |
 

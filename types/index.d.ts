@@ -26,6 +26,8 @@ export type Snap = {
   cur?: Group
   prev: Group[]
   next: Group[]
+  /** The current task was picked with `/task switch`, not the earliest open plan. */
+  isPicked?: boolean
   version?: number
 }
 export type PaneUi = { showPrev: boolean; stage?: string; paneOpen?: boolean; selected?: string }
