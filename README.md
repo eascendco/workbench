@@ -125,7 +125,7 @@ Claude gets a `work_items` tool to create tasks, add items and update their stat
 | `/task add [stage:] title -- details` | Add a work item |
 | `/task break` | Ask Claude to draft the work items |
 | `/task switch [n \| key \| words]` | Work on another open task: its Up next number, its task key or words of its title. With nothing after it, lists them. `/task switch back` returns to the earliest by date |
-| `/task pane` | Open the side pane |
+| `/task pane` | Open the side pane. In a folder with no plans the band shows "Workbench ❯" while the pane is closed, to reopen it |
 | `/task <anything else>` | Ask Claude, with the task and its plan file attached |
 
 ## Settings

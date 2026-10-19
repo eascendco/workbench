@@ -129,6 +129,17 @@ test('the band and the Workbench draw the task from the plan files', async ($, o
   await band.unmount()
 })
 
+test('with no plans here the band still offers the closed pane', async ($, on) => {
+  world(on, {})
+  await run($, '')
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const band = await $.ui.mount({ plugin: 'workbench', surface, component: 'AbovePrompt', props: { bodyColumns: 100 } } as never)
+    expect(await band.find({ text: /Workbench/ })).toBeDefined()
+    expect(await band.find({ type: 'Button', key: 'band-open' })).toBeDefined()
+    await band.unmount()
+  }
+})
+
 test('changes write the plan file; a plan with every item done is marked done', async ($, on) => {
   const w = world(on, { [PLANS + '/forecast.md']: FORECAST, [PLANS + '/alerts.md']: ALERTS })
   expect(await run($, 'start 3')).toMatch(/Saved: Offline cache → doing/)

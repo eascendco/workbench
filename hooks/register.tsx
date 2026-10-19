@@ -161,6 +161,11 @@ async function openPane($: $) {
   await $.ui.open({ id: PANE, title: TITLE })
 }
 
+/** Set once the pane has drawn in this session. Until then the first prompt opens it again: a resumed
+ *  session can start before the desktop can take a pane, and the open at start is lost. */
+let paneSeen = false
+let paneRetried = false
+
 /** The band's chevron and `/task pane`. */
 async function togglePane($: $) {
   const isUp = (await $.ui.panes()).some(p => p.id === PANE)
@@ -997,7 +1002,19 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const snap = await read($, snapAtom)
-    if (!settings.band || e.props.hasSurvey || snap.status !== 'ready' || !snap.cur) return next(e)
+    if (!settings.band || e.props.hasSurvey) return next(e)
+    if (snap.status !== 'ready' || !snap.cur) {
+      // No current task here (no plans folder, as at a workspace root): the band only offers the pane while it is
+      // closed, since it has no chevron to fall back on otherwise.
+      if ((await $.ui.panes()).some(p => p.id === PANE)) return next(e)
+      const { Box, Text, Button } = $.ui.resolve(e)
+      return (
+        <Box flexDirection="row" alignItems="center" columnGap={1}>
+          <Text dimColor>Workbench</Text>
+          <Button key="band-open" plain label="❯" onPress={() => void openPane($)} />
+        </Box>
+      )
+    }
     await read($, uiAtom)
     const els = $.ui.resolve(e)
     const { Box, Text, Button } = els
@@ -1060,6 +1077,10 @@ export const register: Register = (on, options) => {
   // A prompt starts a turn: Right now shows Claude working until the turn ends.
   on('prompt.submit', async ($, e, next) => {
     const r = await next(e)
+    if (settings.openPane && !paneSeen && !paneRetried) {
+      paneRetried = true
+      if (!(await $.ui.panes()).some(p => p.id === PANE)) void quiet(openPane($))
+    }
     await quiet(update($, activityAtom, () => ({ busy: true, since: Date.now() })))
     return r
   }).catch(($, e, next) => next(e))
@@ -1095,6 +1116,7 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => next(e)) // never in the way of a tool call
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
+    paneSeen = true
     const els = $.ui.resolve(e)
     const { Box, Text, Button } = els
     const Input = 'Input' in els ? els.Input : undefined
