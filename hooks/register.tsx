@@ -295,17 +295,21 @@ const picksOf = async ($: $): Promise<Record<string, string>> => {
   return v && typeof v === 'object' ? (v as Record<string, string>) : {}
 }
 
-/** Makes `key` this project's current task; undefined, or the earliest open plan, goes back to following the dates. */
+/** Makes `key` this project's current task; undefined, or the earliest open plan, goes back to following the dates.
+ * A task with no work items yet is broken down first: Claude is asked to draft them. Returns whether it was. */
 async function switchTask($: $, key: string | undefined) {
   await loadPlans($)
-  if (!plansDir) return
+  if (!plansDir) return false
   const folder = plansDir.slice(0, -settings.plansDir.length - 1)
   const earliest = snapshotOfPlans(plans, folder).cur?.key
   const picks = await picksOf($)
   if (!key || key === earliest) delete picks[folder]
   else picks[folder] = key
   await quiet($.store.set(PICKS, picks))
-  await refresh($)
+  const cur = (await refresh($)).cur
+  if (!cur || cur.items.length) return false
+  submitLater($, breakPrompt(cur))
+  return true
 }
 
 async function refresh($: $) {
@@ -522,15 +526,16 @@ async function taskCommand($: $, e: { args?: string }) {
     const arg = rest.join(' ')
     const list = snap.next.map((g, k) => `${k + 1} ${g.key} ${g.title}`).join(' · ')
     if (!arg) return { text: `Working on ${cur.key} ${cur.title}. Switch to: ${list || 'nothing else open'}. Use /task switch <n>, a task key or words of its title.` }
+    const breaking = ' It has no work items yet, so Claude breaks it down first.'
     if (arg === 'back') {
-      await switchTask($, undefined)
+      const broke = await switchTask($, undefined)
       const s2 = await read($, snapAtom)
-      return { text: `Back to the earliest open task: ${s2.cur?.key} ${s2.cur?.title}` }
+      return { text: `Back to the earliest open task: ${s2.cur?.key} ${s2.cur?.title}.${broke ? breaking : ''}` }
     }
     const to = findOpen(plans, snap, arg)
     if (!to) return { text: `No open task matches "${arg}". Switch to: ${list}` }
-    await switchTask($, to.task)
-    return { text: `Now working on ${to.task} ${to.title}` }
+    const broke = await switchTask($, to.task)
+    return { text: `Now working on ${to.task} ${to.title}.${broke ? breaking : ''}` }
   }
   // Anything else is a request in words: hand it to Claude with the task and every item's details.
   submitLater($, workPrompt(snap, args))

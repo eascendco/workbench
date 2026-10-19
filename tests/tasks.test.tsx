@@ -237,15 +237,27 @@ test('a picked task is current until it is done; Up next numbers and keys find t
 })
 
 test('pressing a task in Up next makes it current; /task switch back returns to the earliest', async ($, on) => {
-  world(on, { [PLANS + '/forecast.md']: FORECAST, [PLANS + '/alerts.md']: ALERTS })
+  const w = world(on, { [PLANS + '/forecast.md']: FORECAST, [PLANS + '/alerts.md']: ALERTS })
+  const sent: string[] = []
+  on('prompt.submit', async ($, e) => {
+    sent.push(e.text)
+    return { text: e.text }
+  })
   await run($, '')
   const ui = await $.ui.mount({ plugin: 'workbench', surface: 'terminal', component: 'Pane', requestId: 'workbench', props: {} } as never)
   await ui.press({ key: 'nxb-alerts' })
   expect(await ui.find({ key: 'nxb-forecast' })).toBeDefined() // the forecast task is in Up next now
   expect(await ui.find({ key: 'nxb-alerts' })).toBeUndefined()
+  // alerts has no work items: switching to it asks Claude to break it down first
+  await w.clock.advance(400)
+  expect(sent.length).toBe(1)
+  expect(sent[0]).toMatch(/^Break the current dev task into work items\.\nTask: "Severe weather alerts/)
   expect(await run($, 'switch')).toContain('Working on alerts')
-  expect(await run($, 'switch back')).toContain('forecast Seven-day forecast')
+  // forecast already has items: no breakdown
+  expect(await run($, 'switch back')).toBe('Back to the earliest open task: forecast Seven-day forecast.')
   expect(await ui.find({ key: 'nxb-alerts' })).toBeDefined()
-  expect(await run($, 'switch severe')).toContain('Now working on alerts')
+  expect(await run($, 'switch severe')).toMatch(/^Now working on alerts .*\. It has no work items yet, so Claude breaks it down first\.$/)
+  await w.clock.advance(400)
+  expect(sent.length).toBe(2)
   await ui.unmount()
 })
